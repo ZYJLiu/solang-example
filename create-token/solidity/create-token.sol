@@ -50,4 +50,16 @@ contract create_token {
             owner
         );
     }
+
+    function mintTokens(address mint, address account, address authority, uint64 amount) public view {
+        // Get mint account data to adjust amount for decimals
+        SplToken.MintAccountData data = SplToken.get_mint_account_data(mint);
+        // Invoke Token Program to mint tokens to the token account
+        SplToken.mint_to(
+            mint,      // mint account
+            account,   // token account
+            authority, // mint authority
+            amount * (10 ** uint64(data.decimals)) // adjust amount for decimals of mint account
+        );
+    }
 }

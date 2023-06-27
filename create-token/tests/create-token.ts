@@ -114,4 +114,48 @@ describe("create-token", () => {
     assert.equal(tokenAccountData.owner.toBase58(), wallet.publicKey.toBase58())
     assert.equal(Number(tokenAccountData.amount), 0)
   })
+
+  it("Mint tokens to Token Account via CPI in program", async () => {
+    const amount = 1
+
+    const tx = await program.methods
+      .mintTokens(
+        mint.publicKey, // mint address
+        tokenAccount.publicKey, // token account
+        wallet.publicKey, // mint authority
+        new anchor.BN(amount) // amount to mint
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .remainingAccounts([
+        {
+          pubkey: mint.publicKey, // mint address for token account (type of token to mint)
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount.publicKey, // token account (where to mint new tokens to)
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: wallet.publicKey, // mint authority (who is allowed to mint new tokens)
+          isWritable: true,
+          isSigner: true,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+
+    const mintAccountData = await getMint(connection, mint.publicKey)
+    const tokenAccountData = await getAccount(
+      connection,
+      tokenAccount.publicKey
+    )
+    assert.equal(tokenAccountData.mint.toBase58(), mint.publicKey.toBase58())
+    assert.equal(tokenAccountData.owner.toBase58(), wallet.publicKey.toBase58())
+    assert.equal(
+      Number(tokenAccountData.amount),
+      amount * 10 ** mintAccountData.decimals
+    )
+  })
 })
