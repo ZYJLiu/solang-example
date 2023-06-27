@@ -7,6 +7,7 @@ import 'solana';
 
 library SplToken {
 	address constant tokenProgramId = address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+	address constant rentAddress = address"SysvarRent111111111111111111111111111111111";
 	enum TokenInstruction {
 		InitializeMint, // 0
 		InitializeAccount, // 1
@@ -42,6 +43,25 @@ library SplToken {
 		CreateNativeMint // 31
 	}
 
+	/// Initialize a new token account.
+	///
+	/// @param tokenAccount the public key of the token account to initialize
+	/// @param mint the public key of the mint account for this new token account
+	/// @param owner the public key of the owner of this new token account
+	function initialize_account(address tokenAccount, address mint, address owner) internal view{
+		bytes instr = new bytes(1);
+
+		instr[0] = uint8(TokenInstruction.InitializeAccount);
+		AccountMeta[4] metas = [
+			AccountMeta({pubkey: tokenAccount, is_writable: true, is_signer: false}),
+			AccountMeta({pubkey: mint, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: owner, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: rentAddress, is_writable: false, is_signer: false})
+		];
+
+		tokenProgramId.call{accounts: metas}(instr);
+	}
+
 	// Initialize mint instruction data
 	struct InitializeMintInstruction {
         uint8 instruction;
@@ -70,7 +90,7 @@ library SplToken {
 			AccountMeta({pubkey: mint, is_writable: true, is_signer: false})
 		];
 
-		address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".call{accounts: metas}(instr);
+		tokenProgramId.call{accounts: metas}(instr);
 	}
 
 	/// Mint new tokens. The transaction should be signed by the mint authority keypair

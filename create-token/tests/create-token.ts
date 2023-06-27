@@ -1,8 +1,8 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Program } from "@coral-xyz/anchor"
 import { CreateToken } from "../target/types/create_token"
-import { Keypair } from "@solana/web3.js"
-import { getMint } from "@solana/spl-token"
+import { Keypair, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
+import { getAccount, getMint } from "@solana/spl-token"
 import { assert } from "chai"
 
 describe("create-token", () => {
@@ -10,13 +10,14 @@ describe("create-token", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
-  const wallet = provider.wallet
+  const wallet = provider.wallet as anchor.Wallet
   const connection = provider.connection
 
   const program = anchor.workspace.CreateToken as Program<CreateToken>
 
-  const mint = Keypair.generate()
   const dataAccount = Keypair.generate()
+  const mint = Keypair.generate()
+  const tokenAccount = Keypair.generate()
 
   // Initialize the dataAccount, even though it is not used in other instructions
   // It seems to be a required account
@@ -30,13 +31,15 @@ describe("create-token", () => {
   })
 
   it("Initialize Mint Account via CPI in program", async () => {
+    const decimals = 9
+
     const tx = await program.methods
       .initializeMint(
         wallet.publicKey, // payer
         mint.publicKey, // mint address to initialize
         wallet.publicKey, // mint authority
         wallet.publicKey, // freeze authority
-        9 // decimals
+        decimals // decimals
       )
       .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
       .remainingAccounts([
@@ -55,16 +58,60 @@ describe("create-token", () => {
       .rpc({ skipPreflight: true })
     console.log("Your transaction signature", tx)
 
-    const mintAccount = await getMint(connection, mint.publicKey)
-    assert.equal(mintAccount.decimals, 9)
+    const mintAccountData = await getMint(connection, mint.publicKey)
+    assert.equal(mintAccountData.decimals, decimals)
     assert.equal(
-      mintAccount.mintAuthority.toBase58(),
+      mintAccountData.mintAuthority.toBase58(),
       wallet.publicKey.toBase58()
     )
     assert.equal(
-      mintAccount.freezeAuthority.toBase58(),
+      mintAccountData.freezeAuthority.toBase58(),
       wallet.publicKey.toBase58()
     )
-    assert.equal(Number(mintAccount.supply), 0)
+    assert.equal(Number(mintAccountData.supply), 0)
+  })
+
+  it("Initialize Token Account via CPI in program", async () => {
+    const tx = await program.methods
+      .initializeAccount(
+        wallet.publicKey, // payer
+        tokenAccount.publicKey, // token account to initialize
+        mint.publicKey, // mint address for token account
+        wallet.publicKey // token account owner
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .remainingAccounts([
+        {
+          pubkey: tokenAccount.publicKey, // token account to initialize
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: mint.publicKey, // mint address for token account
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: wallet.publicKey, // token account owner
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: SYSVAR_RENT_PUBKEY, // rent sysvar
+          isWritable: false,
+          isSigner: false,
+        },
+      ])
+      .signers([tokenAccount])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+
+    const tokenAccountData = await getAccount(
+      connection,
+      tokenAccount.publicKey
+    )
+    assert.equal(tokenAccountData.mint.toBase58(), mint.publicKey.toBase58())
+    assert.equal(tokenAccountData.owner.toBase58(), wallet.publicKey.toBase58())
+    assert.equal(Number(tokenAccountData.amount), 0)
   })
 })

@@ -10,7 +10,7 @@ contract create_token {
     @payer(payer)
     constructor(address payer) {}
 
-    function initializeMint(address payer, address mint, address mintAuthority, address freezeAuthority, uint8 decimals) public {
+    function initializeMint(address payer, address mint, address mintAuthority, address freezeAuthority, uint8 decimals) public view {
         // Invoke System Program to create a new account for the mint account
         // Program owner is set to the Token program
         SystemInstruction.create_account(
@@ -28,6 +28,26 @@ contract create_token {
             mintAuthority,   // mint authority
             freezeAuthority, // freeze authority
             decimals         // decimals
+        );
+    }
+
+    function initializeAccount(address payer, address tokenAccount, address mint, address owner) public view {
+        // Invoke System Program to create a new account for the token account
+        // Program owner is set to the Token program
+        SystemInstruction.create_account(
+            payer,        // lamports sent from this account (payer)
+            tokenAccount, // lamports sent to this account (account to be created)
+            2039280,      // lamport amount (minimum lamports for token account)
+            165,          // space required for the account (token account)
+            address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" // new program owner
+        );
+
+        // Invoke Token Program to initialize the token account
+        // Specify mint and owner of the token account (not program owner)
+        SplToken.initialize_account(
+            tokenAccount,
+            mint,
+            owner
         );
     }
 }
