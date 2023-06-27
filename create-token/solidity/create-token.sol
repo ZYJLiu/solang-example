@@ -122,6 +122,21 @@ contract create_token {
         createMetadata(metadata, mint, mintAuthority, payer, payer);
     }
 
+    function initializeAssociatedTokenAccount(address payer, address tokenAccount, address mint, address owner) public view {
+        AccountMeta[6] metas = [
+			AccountMeta({pubkey: payer, is_writable: true, is_signer: true}),
+			AccountMeta({pubkey: tokenAccount, is_writable: true, is_signer: false}),
+			AccountMeta({pubkey: owner, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: mint, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: address"11111111111111111111111111111111", is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", is_writable: false, is_signer: false})
+		];
+        bytes bincode = abi.encode((0));
+		address"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL".call{accounts: metas}(bincode);
+    }
+
+
+
     struct CreateMetadataAccountArgsV3 {
         DataV2 data;
         bool isMutable;

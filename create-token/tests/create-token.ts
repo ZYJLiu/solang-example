@@ -2,7 +2,13 @@ import * as anchor from "@coral-xyz/anchor"
 import { Program } from "@coral-xyz/anchor"
 import { CreateToken } from "../target/types/create_token"
 import { Keypair, SYSVAR_RENT_PUBKEY, SystemProgram } from "@solana/web3.js"
-import { getAccount, getMint } from "@solana/spl-token"
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAccount,
+  getAssociatedTokenAddress,
+  getMint,
+} from "@solana/spl-token"
 import { Metaplex, PublicKey } from "@metaplex-foundation/js"
 import {} from "@metaplex-foundation/mpl-token-metadata"
 import { assert } from "chai"
@@ -267,5 +273,107 @@ describe("create-token", () => {
       ])
       .rpc({ skipPreflight: true })
     console.log("Your transaction signature", tx)
+  })
+
+  it("Initialize Associated Token Account via CPI in program", async () => {
+    const associatedTokenAccount = await getAssociatedTokenAddress(
+      mint.publicKey,
+      wallet.publicKey
+    )
+
+    const tx = await program.methods
+      .initializeAssociatedTokenAccount(
+        wallet.publicKey, // payer
+        associatedTokenAccount, // token account to initialize
+        mint.publicKey, // mint address for token account
+        wallet.publicKey // token account owner
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // payer, token account owner
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: associatedTokenAccount, // token account to initialize
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: mint.publicKey, // mint address for token account
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, // Associated Token Program ID
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: TOKEN_PROGRAM_ID, // Token Program ID
+          isWritable: false,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+
+    const tokenAccountData = await getAccount(
+      connection,
+      associatedTokenAccount
+    )
+    assert.equal(tokenAccountData.mint.toBase58(), mint.publicKey.toBase58())
+    assert.equal(tokenAccountData.owner.toBase58(), wallet.publicKey.toBase58())
+    assert.equal(Number(tokenAccountData.amount), 0)
+  })
+
+  it("Mint tokens to Associated Token Account via CPI in program", async () => {
+    const amount = 1
+
+    const associatedTokenAccount = await getAssociatedTokenAddress(
+      mint.publicKey,
+      wallet.publicKey
+    )
+
+    const tx = await program.methods
+      .mintTokens(
+        mint.publicKey, // mint address
+        associatedTokenAccount, // token account
+        wallet.publicKey, // mint authority
+        new anchor.BN(amount) // amount to mint
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // mint authority (who is allowed to mint new tokens)
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: mint.publicKey, // mint address for token account (type of token to mint)
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: associatedTokenAccount, // token account (where to mint new tokens to)
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+
+    const mintAccountData = await getMint(connection, mint.publicKey)
+    const tokenAccountData = await getAccount(
+      connection,
+      associatedTokenAccount
+    )
+    assert.equal(tokenAccountData.mint.toBase58(), mint.publicKey.toBase58())
+    assert.equal(tokenAccountData.owner.toBase58(), wallet.publicKey.toBase58())
+    assert.equal(
+      Number(tokenAccountData.amount),
+      amount * 10 ** mintAccountData.decimals
+    )
   })
 })
