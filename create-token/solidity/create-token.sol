@@ -45,9 +45,9 @@ contract create_token {
         // Invoke Token Program to initialize the token account
         // Specify mint and owner of the token account (not program owner)
         SplToken.initialize_account(
-            tokenAccount,
-            mint,
-            owner
+            tokenAccount, // token account to initialize
+            mint,         // mint account for the token
+            owner         // owner of the token account
         );
     }
 
@@ -62,4 +62,104 @@ contract create_token {
             amount * (10 ** uint64(data.decimals)) // adjust amount for decimals of mint account
         );
     }
+
+    struct CreateMetadataAccountArgsV3 {
+        DataV2 data;
+        bool isMutable;
+        bool collectionDetailsPresent; // To handle Rust Option<> in Solidity
+        // CollectionDetails collectionDetails;
+    }
+    struct DataV2 {
+        string name;
+        string symbol;
+        string uri;
+        uint16 sellerFeeBasisPoints;
+        bool creatorsPresent; // To handle Rust Option<> in Solidity
+        Creator[] creators;
+        bool collectionPresent; // To handle Rust Option<> in Solidity
+        // Collection collection;
+        bool usesPresent; // To handle Rust Option<> in Solidity
+        // Uses uses;
+    }
+    struct Creator {
+        address creatorAddress;
+        bool verified;
+        uint8 share;
+    }
+    struct Collection {
+        bool verified;
+        address key;
+    }
+    enum CollectionDetailsType {
+        V1
+    }
+    struct CollectionDetails {
+        CollectionDetailsType detailType;
+        uint64 size;
+    }
+    struct Uses {
+        UseMethod useMethod;
+        uint64 remaining;
+        uint64 total;
+    }
+    enum UseMethod {
+        Burn,
+        Multiple,
+        Single
+    }
+
+    function createMetadata(address metadata, address mint, address mintAuthority, address payer, address updateAuthority) public view {
+        Creator[] memory creators = new Creator[](1);
+        creators[0] = Creator({
+            creatorAddress: payer,
+            verified: false,
+            share: 100
+        });
+
+        DataV2 memory data = DataV2({
+            name: "RGB",
+            symbol: "RGB",
+            uri: "https://raw.githubusercontent.com/ZYJLiu/rgb-png-generator/master/assets/40_183_132/40_183_132.json",
+            sellerFeeBasisPoints: 0,
+            creatorsPresent: true,
+            creators: creators,
+            collectionPresent: false,
+            // collection: Collection({
+            //     verified: false,
+            //     key: address(0)
+            // }),
+            usesPresent: false
+            // uses: Uses({
+            //     useMethod: UseMethod.Burn,
+            //     remaining: 0,
+            //     total: 0
+            // })
+        });
+
+        CreateMetadataAccountArgsV3 memory args = CreateMetadataAccountArgsV3({
+            data: data,
+            isMutable: true,
+            collectionDetailsPresent: false
+            // collectionDetails: CollectionDetails({
+            //     detailType: CollectionDetailsType.V1,
+            //     size: 0
+            // })
+        });
+
+        AccountMeta[7] metas = [
+            AccountMeta({pubkey: metadata, is_writable: true, is_signer: false}),
+            AccountMeta({pubkey: mint, is_writable: false, is_signer: false}),
+            AccountMeta({pubkey: mintAuthority, is_writable: false, is_signer: true}),
+            AccountMeta({pubkey: payer, is_writable: true, is_signer: true}),
+            AccountMeta({pubkey: updateAuthority, is_writable: false, is_signer: false}),
+            AccountMeta({pubkey: address"11111111111111111111111111111111", is_writable: false, is_signer: false}),
+            AccountMeta({pubkey: address"SysvarRent111111111111111111111111111111111", is_writable: false, is_signer: false})
+        ];
+
+        bytes1 discriminator = 33;
+        bytes bincode = abi.encode(discriminator, args);
+
+        address'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'.call{accounts: metas}(bincode);
+    }
+
 }

@@ -1,8 +1,10 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Program } from "@coral-xyz/anchor"
 import { CreateToken } from "../target/types/create_token"
-import { Keypair, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
+import { Keypair, SYSVAR_RENT_PUBKEY, SystemProgram } from "@solana/web3.js"
 import { getAccount, getMint } from "@solana/spl-token"
+import { Metaplex, PublicKey } from "@metaplex-foundation/js"
+import {} from "@metaplex-foundation/mpl-token-metadata"
 import { assert } from "chai"
 
 describe("create-token", () => {
@@ -157,5 +159,67 @@ describe("create-token", () => {
       Number(tokenAccountData.amount),
       amount * 10 ** mintAccountData.decimals
     )
+  })
+
+  it("Create Metadata Account via CPI in program", async () => {
+    const metaplex = Metaplex.make(connection)
+    const metadata = await metaplex
+      .nfts()
+      .pdas()
+      .metadata({ mint: mint.publicKey })
+
+    const tx = await program.methods
+      .createMetadata(
+        metadata, // metadata account
+        mint.publicKey, // mint address
+        wallet.publicKey, // mint authority
+        wallet.publicKey, // payer
+        wallet.publicKey // update authority
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .remainingAccounts([
+        {
+          pubkey: new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: metadata, // Metadata account
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: mint.publicKey, // Mint of token asset
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: wallet.publicKey, // Mint authority
+          isWritable: false,
+          isSigner: true,
+        },
+        {
+          pubkey: wallet.publicKey, // payer
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: wallet.publicKey, // update authority info
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: SystemProgram.programId, // System program
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: SYSVAR_RENT_PUBKEY, // Rent info
+          isWritable: false,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
   })
 })
