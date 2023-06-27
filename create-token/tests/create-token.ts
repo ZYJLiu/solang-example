@@ -46,12 +46,12 @@ describe("create-token", () => {
       .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
       .remainingAccounts([
         {
-          pubkey: mint.publicKey, // mint address to initialize
+          pubkey: wallet.publicKey, // payer
           isWritable: true,
           isSigner: true,
         },
         {
-          pubkey: wallet.publicKey, // payer
+          pubkey: mint.publicKey, // mint address to initialize
           isWritable: true,
           isSigner: true,
         },
@@ -84,17 +84,17 @@ describe("create-token", () => {
       .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
       .remainingAccounts([
         {
+          pubkey: wallet.publicKey, // payer, token account owner
+          isWritable: true,
+          isSigner: true,
+        },
+        {
           pubkey: tokenAccount.publicKey, // token account to initialize
           isWritable: true,
           isSigner: true,
         },
         {
           pubkey: mint.publicKey, // mint address for token account
-          isWritable: false,
-          isSigner: false,
-        },
-        {
-          pubkey: wallet.publicKey, // token account owner
           isWritable: false,
           isSigner: false,
         },
@@ -130,6 +130,11 @@ describe("create-token", () => {
       .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
       .remainingAccounts([
         {
+          pubkey: wallet.publicKey, // mint authority (who is allowed to mint new tokens)
+          isWritable: true,
+          isSigner: true,
+        },
+        {
           pubkey: mint.publicKey, // mint address for token account (type of token to mint)
           isWritable: true,
           isSigner: false,
@@ -138,11 +143,6 @@ describe("create-token", () => {
           pubkey: tokenAccount.publicKey, // token account (where to mint new tokens to)
           isWritable: true,
           isSigner: false,
-        },
-        {
-          pubkey: wallet.publicKey, // mint authority (who is allowed to mint new tokens)
-          isWritable: true,
-          isSigner: true,
         },
       ])
       .rpc({ skipPreflight: true })
@@ -179,32 +179,22 @@ describe("create-token", () => {
       .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
       .remainingAccounts([
         {
+          pubkey: wallet.publicKey, // payer, mint authority, and update authority
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: mint.publicKey, // Token account we are creating metadata account for
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: metadata, // Metadata account to create
+          isWritable: true,
+          isSigner: false,
+        },
+        {
           pubkey: new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
-          isWritable: false,
-          isSigner: false,
-        },
-        {
-          pubkey: metadata, // Metadata account
-          isWritable: true,
-          isSigner: false,
-        },
-        {
-          pubkey: mint.publicKey, // Mint of token asset
-          isWritable: false,
-          isSigner: false,
-        },
-        {
-          pubkey: wallet.publicKey, // Mint authority
-          isWritable: false,
-          isSigner: true,
-        },
-        {
-          pubkey: wallet.publicKey, // payer
-          isWritable: true,
-          isSigner: true,
-        },
-        {
-          pubkey: wallet.publicKey, // update authority info
           isWritable: false,
           isSigner: false,
         },
@@ -214,7 +204,63 @@ describe("create-token", () => {
           isSigner: false,
         },
         {
-          pubkey: SYSVAR_RENT_PUBKEY, // Rent info
+          pubkey: SYSVAR_RENT_PUBKEY, // Sysvar rent
+          isWritable: false,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+  })
+
+  it("Create Mint and Metadata Account via CPI in program", async () => {
+    const decimals = 9
+    const mint = Keypair.generate()
+    const metaplex = Metaplex.make(connection)
+    const metadata = await metaplex
+      .nfts()
+      .pdas()
+      .metadata({ mint: mint.publicKey })
+
+    const tx = await program.methods
+      .createMintAndMetadata(
+        wallet.publicKey, // mint authority
+        metadata, // metadata account
+        mint.publicKey, // mint address
+        wallet.publicKey, // mint authority
+        wallet.publicKey, // freeze authority
+        decimals // decimals
+      )
+      .accounts({ dataAccount: dataAccount.publicKey }) // required even though it is not used
+      .signers([mint])
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // payer
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: mint.publicKey, // mint address to initialize
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: metadata, // metadata account
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"), // metadata program
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: SystemProgram.programId, // System program
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: SYSVAR_RENT_PUBKEY, // Sysvar rent
           isWritable: false,
           isSigner: false,
         },

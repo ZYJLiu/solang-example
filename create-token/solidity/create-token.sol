@@ -63,66 +63,21 @@ contract create_token {
         );
     }
 
-    struct CreateMetadataAccountArgsV3 {
-        DataV2 data;
-        bool isMutable;
-        bool collectionDetailsPresent; // To handle Rust Option<> in Solidity
-        // CollectionDetails collectionDetails;
-    }
-    struct DataV2 {
-        string name;
-        string symbol;
-        string uri;
-        uint16 sellerFeeBasisPoints;
-        bool creatorsPresent; // To handle Rust Option<> in Solidity
-        Creator[] creators;
-        bool collectionPresent; // To handle Rust Option<> in Solidity
-        // Collection collection;
-        bool usesPresent; // To handle Rust Option<> in Solidity
-        // Uses uses;
-    }
-    struct Creator {
-        address creatorAddress;
-        bool verified;
-        uint8 share;
-    }
-    struct Collection {
-        bool verified;
-        address key;
-    }
-    enum CollectionDetailsType {
-        V1
-    }
-    struct CollectionDetails {
-        CollectionDetailsType detailType;
-        uint64 size;
-    }
-    struct Uses {
-        UseMethod useMethod;
-        uint64 remaining;
-        uint64 total;
-    }
-    enum UseMethod {
-        Burn,
-        Multiple,
-        Single
-    }
-
     function createMetadata(address metadata, address mint, address mintAuthority, address payer, address updateAuthority) public view {
-        Creator[] memory creators = new Creator[](1);
-        creators[0] = Creator({
-            creatorAddress: payer,
-            verified: false,
-            share: 100
-        });
+        // Creator[] memory creators = new Creator[](1);
+        // creators[0] = Creator({
+        //     creatorAddress: payer,
+        //     verified: false,
+        //     share: 100
+        // });
 
         DataV2 memory data = DataV2({
             name: "RGB",
             symbol: "RGB",
             uri: "https://raw.githubusercontent.com/ZYJLiu/rgb-png-generator/master/assets/40_183_132/40_183_132.json",
             sellerFeeBasisPoints: 0,
-            creatorsPresent: true,
-            creators: creators,
+            creatorsPresent: false,
+            // creators: creators,
             collectionPresent: false,
             // collection: Collection({
             //     verified: false,
@@ -160,6 +115,56 @@ contract create_token {
         bytes bincode = abi.encode(discriminator, args);
 
         address'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'.call{accounts: metas}(bincode);
+    }
+
+    function createMintAndMetadata(address payer, address metadata, address mint, address mintAuthority, address freezeAuthority, uint8 decimals) public view {
+        initializeMint(payer, mint, mintAuthority, freezeAuthority, decimals);
+        createMetadata(metadata, mint, mintAuthority, payer, payer);
+    }
+
+    struct CreateMetadataAccountArgsV3 {
+        DataV2 data;
+        bool isMutable;
+        bool collectionDetailsPresent; // To handle Rust Option<> in Solidity
+        // CollectionDetails collectionDetails;
+    }
+    struct DataV2 {
+        string name;
+        string symbol;
+        string uri;
+        uint16 sellerFeeBasisPoints;
+        bool creatorsPresent; // To handle Rust Option<> in Solidity
+        // Creator[] creators;
+        bool collectionPresent; // To handle Rust Option<> in Solidity
+        // Collection collection;
+        bool usesPresent; // To handle Rust Option<> in Solidity
+        // Uses uses;
+    }
+    struct Creator {
+        address creatorAddress;
+        bool verified;
+        uint8 share;
+    }
+    struct Collection {
+        bool verified;
+        address key;
+    }
+    enum CollectionDetailsType {
+        V1
+    }
+    struct CollectionDetails {
+        CollectionDetailsType detailType;
+        uint64 size;
+    }
+    struct Uses {
+        UseMethod useMethod;
+        uint64 remaining;
+        uint64 total;
+    }
+    enum UseMethod {
+        Burn,
+        Multiple,
+        Single
     }
 
 }
