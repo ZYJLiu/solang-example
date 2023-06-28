@@ -18,7 +18,7 @@ contract create_token {
             mint,    // lamports sent to this account (account to be created)
             1461600, // lamport amount (minimum lamports for mint account)
             82,      // space required for the account (mint account)
-            address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" // new program owner
+            SplToken.tokenProgramId // new program owner
         );
 
         // Invoke Token Program to initialize the mint account
@@ -39,7 +39,7 @@ contract create_token {
             tokenAccount, // lamports sent to this account (account to be created)
             2039280,      // lamport amount (minimum lamports for token account)
             165,          // space required for the account (token account)
-            address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" // new program owner
+            SplToken.tokenProgramId // new program owner
         );
 
         // Invoke Token Program to initialize the token account
@@ -107,8 +107,8 @@ contract create_token {
             AccountMeta({pubkey: mintAuthority, is_writable: false, is_signer: true}),
             AccountMeta({pubkey: payer, is_writable: true, is_signer: true}),
             AccountMeta({pubkey: updateAuthority, is_writable: false, is_signer: false}),
-            AccountMeta({pubkey: address"11111111111111111111111111111111", is_writable: false, is_signer: false}),
-            AccountMeta({pubkey: address"SysvarRent111111111111111111111111111111111", is_writable: false, is_signer: false})
+            AccountMeta({pubkey: SystemInstruction.systemAddress, is_writable: false, is_signer: false}),
+            AccountMeta({pubkey: SystemInstruction.rentAddress, is_writable: false, is_signer: false})
         ];
 
         bytes1 discriminator = 33;
@@ -128,8 +128,8 @@ contract create_token {
 			AccountMeta({pubkey: tokenAccount, is_writable: true, is_signer: false}),
 			AccountMeta({pubkey: owner, is_writable: false, is_signer: false}),
 			AccountMeta({pubkey: mint, is_writable: false, is_signer: false}),
-			AccountMeta({pubkey: address"11111111111111111111111111111111", is_writable: false, is_signer: false}),
-			AccountMeta({pubkey: address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", is_writable: false, is_signer: false})
+			AccountMeta({pubkey: SystemInstruction.systemAddress, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: SplToken.tokenProgramId, is_writable: false, is_signer: false})
 		];
         bytes bincode = abi.encode((0));
 		address"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL".call{accounts: metas}(bincode);
