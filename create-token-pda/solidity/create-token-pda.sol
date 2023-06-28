@@ -9,9 +9,9 @@ contract create_token_pda {
     @payer(payer)
     constructor(address payer) {}
 
-
+    // Instruction to create and initialize a mint account
     function initializeMint(address payer, address mint, address mintAuthority, address freezeAuthority, uint8 decimals, bytes bump) public view {
-        // PDA check
+        // Validate the PDA
         checkMintPDA(mint, bump);
 
         // Create new account for mint using PDA as the address
@@ -23,79 +23,93 @@ contract create_token_pda {
 
     // Invoke the system program to create an account, with space for mint account
     function createMintAccount(address payer, address newAccount, bytes bump) internal view{
-        AccountMeta[2] metas = [
-            AccountMeta({pubkey: payer,  is_signer: true, is_writable: true}),
-            AccountMeta({pubkey: newAccount, is_signer: true, is_writable: true})
-        ];
-
-        bytes instructionData = abi.encode(
-            uint32(0), // CreateAccount instruction index
-            uint64(1461600), // lamports
-            uint64(82), // space
-            SplToken.tokenProgramId // owner, transfer ownership to token program
-        );
-
-        SystemInstruction.systemAddress.call{accounts: metas, seeds: [["mint", bump]]}(instructionData);
-    }
-
-    // Create a token account using a PDA as the address
-    function initializeAccount(address payer, address tokenAccount, address mint, bytes bump) public view {
-        // PDA check
-        checkTokenPDA(tokenAccount, bump, payer);
-
-        createTokenAccount(payer, tokenAccount, bump);
-        SplToken.initialize_account(
-            tokenAccount, // token account
-            mint, // mint
-            tokenAccount // owner (pda)
-        );
-    }
-
-    // Invoke the system program to create an account, with space for token account
-    function createTokenAccount(address payer, address newAccount, bytes bump) internal view{
+        // Prepare accounts required by instruction
         AccountMeta[2] metas = [
             AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
             AccountMeta({pubkey: newAccount, is_signer: true, is_writable: true})
         ];
 
-        bytes bincode = abi.encode(
+        // Prepare instruction data
+        bytes instructionData = abi.encode(
             uint32(0), // CreateAccount instruction index
-            uint64(2039280), // lamports
-            uint64(165), // space
-            SplToken.tokenProgramId // owner, transfer ownership to token program
+            uint64(1461600), // lamports (minimum balance required for mint account)
+            uint64(82), // space (minimum required for mint account)
+            SplToken.tokenProgramId // owner (the account will be owned by the token program)
         );
 
+        // Call the system program to create a new account with the prepared instruction data
+        SystemInstruction.systemAddress.call{accounts: metas, seeds: [["mint", bump]]}(instructionData);
+    }
+
+    // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
+    function initializeAccount(address payer, address tokenAccount, address mint, bytes bump) public view {
+        // Validate the PDA
+        checkTokenPDA(tokenAccount, bump, payer);
+
+        // Create new token account with the PDA as the address
+        createTokenAccount(payer, tokenAccount, bump);
+
+        // Initialize the newly created token account
+        SplToken.initialize_account(
+            tokenAccount, // token account
+            mint, // mint
+            tokenAccount // owner (same pda used as both token account address and owner)
+        );
+    }
+
+    // Invoke the system program to create an account, with space for token account
+    function createTokenAccount(address payer, address newAccount, bytes bump) internal view{
+        // Prepare accounts required by instruction
+        AccountMeta[2] metas = [
+            AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
+            AccountMeta({pubkey: newAccount, is_signer: true, is_writable: true})
+        ];
+
+        // Prepare instruction data
+        bytes bincode = abi.encode(
+            uint32(0), // CreateAccount instruction index
+            uint64(2039280), // lamports (minimum balance required for token account)
+            uint64(165), // space (minimum required for mint account)
+            SplToken.tokenProgramId // owner (the account will be owned by the token program)
+        );
+
+        // Call the system program to create a new account with the prepared instruction data
         SystemInstruction.systemAddress.call{accounts: metas, seeds: [["token", abi.encode(payer), bump]]}(bincode);
     }
 
     // Mint tokens to a token account using a PDA mint authority
     function mintTokens(address mint, address account, uint64 amount, bytes bump) public view {
-        // // PDA check
+        // Validate the PDA
         checkMintPDA(mint, bump);
 
         // Get mint account data to adjust amount for decimals
         SplToken.MintAccountData data = SplToken.get_mint_account_data(mint);
+
+        // Mint tokens to the token account with a PDA as the mint authority
         mintTo(mint, account, mint, amount * 10 ** data.decimals, bump);
     }
 
     // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
     function mintTo(address mint, address account, address authority, uint64 amount, bytes bump) internal view {
-		bytes instr = new bytes(9);
-		instr[0] = uint8(7);
-		instr.writeUint64LE(amount, 1);
+        // Prepare instruction data
+        bytes instructionData = new bytes(9);
+        instructionData[0] = uint8(7); // MintTo instruction index
+        instructionData.writeUint64LE(amount, 1); // Amount to mint
 
-		AccountMeta[3] metas = [
-			AccountMeta({pubkey: mint, is_writable: true, is_signer: false}),
-			AccountMeta({pubkey: account, is_writable: true, is_signer: false}),
-			AccountMeta({pubkey: authority, is_writable: true, is_signer: true})
-		];
+        // Prepare accounts required by instruction
+        AccountMeta[3] metas = [
+            AccountMeta({pubkey: mint, is_writable: true, is_signer: false}),
+            AccountMeta({pubkey: account, is_writable: true, is_signer: false}),
+            AccountMeta({pubkey: authority, is_writable: true, is_signer: true})
+        ];
 
-		SplToken.tokenProgramId.call{accounts: metas, seeds: [["mint", bump]]}(instr);
-	}
+        // Invoke the token program with prepared accounts and instruction data
+        SplToken.tokenProgramId.call{accounts: metas, seeds: [["mint", bump]]}(instructionData);
+    }
 
     // Transfer tokens from token account using a PDA as token owner
     function transferTokens(address payer, address from, address to, uint64 amount, bytes bump) public view {
-        // PDA check
+        // Validate the PDA
         checkTokenPDA(from, bump, payer);
 
         SplToken.TokenAccountData from_data = SplToken.get_token_account_data(from);
@@ -105,19 +119,21 @@ contract create_token_pda {
 
     // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
     function transfer(address payer, address from, address to, address owner, uint64 amount, bytes bump) internal view {
-		bytes instr = new bytes(9);
+        // Prepare instruction data
+        bytes instructionData = new bytes(9);
+        instructionData[0] = uint8(3); // Transfer instruction index
+        instructionData.writeUint64LE(amount, 1); // Amount to transfer
 
-		instr[0] = uint8(3);
-		instr.writeUint64LE(amount, 1);
+        // Prepare accounts required by instruction
+        AccountMeta[3] metas = [
+            AccountMeta({pubkey: from, is_writable: true, is_signer: false}),
+            AccountMeta({pubkey: to, is_writable: true, is_signer: false}),
+            AccountMeta({pubkey: owner, is_writable: true, is_signer: true})
+        ];
 
-		AccountMeta[3] metas = [
-			AccountMeta({pubkey: from, is_writable: true, is_signer: false}),
-			AccountMeta({pubkey: to, is_writable: true, is_signer: false}),
-			AccountMeta({pubkey: owner, is_writable: true, is_signer: true})
-		];
-
-		SplToken.tokenProgramId.call{accounts: metas, seeds: [["token", abi.encode(payer), bump]]}(instr);
-	}
+        // Invoke the token program with prepared accounts and instruction data
+        SplToken.tokenProgramId.call{accounts: metas, seeds: [["token", abi.encode(payer), bump]]}(instructionData);
+    }
 
     // Check that the mint PDA is the expected PDA
     function checkMintPDA(address pdaExpected, bytes1 bumpExpected) private pure {

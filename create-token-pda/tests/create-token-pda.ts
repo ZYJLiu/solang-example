@@ -74,7 +74,7 @@ describe("create-token-pda", () => {
     assert.equal(mintAccountData.freezeAuthority.toBase58(), mint.toBase58())
   })
 
-  it("Initialize PDA Mint Account", async () => {
+  it("Initialize PDA Token Account", async () => {
     const tx = await program.methods
       .initializeAccount(
         wallet.publicKey, // payer
@@ -114,7 +114,7 @@ describe("create-token-pda", () => {
     assert.equal(Number(tokenAccountData.amount), 0)
   })
 
-  it("Mint tokens to Associated Token Account via CPI in program", async () => {
+  it("Mint tokens to Token Account, with PDA as mint authority", async () => {
     const amount = 1
 
     const tx = await program.methods
