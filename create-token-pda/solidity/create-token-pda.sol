@@ -1,6 +1,6 @@
 
-import "../utils/system_instruction.sol";
-import "../utils/spl_token.sol";
+import "./system_instruction.sol";
+import "./spl_token.sol";
 import "solana";
 
 @program_id("Fi1fHVT53eF5u6EZftV5yj6nsBmDvVJrcRM1GCGJCraW")

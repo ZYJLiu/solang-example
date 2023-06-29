@@ -1,6 +1,6 @@
 
-import "../utils/spl_token.sol";
-import "../utils/system_instruction.sol";
+import "./spl_token.sol";
+import "./system_instruction.sol";
 
 @program_id("4B3Gh4ft9K4P7Df6ebEggAZTE4bGg52EyzDGjxES85gf")
 contract create_token {
