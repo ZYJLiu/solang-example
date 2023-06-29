@@ -10,7 +10,6 @@ import {
   getMint,
 } from "@solana/spl-token"
 import { Metaplex, PublicKey } from "@metaplex-foundation/js"
-import {} from "@metaplex-foundation/mpl-token-metadata"
 import { assert } from "chai"
 
 describe("create-token", () => {
