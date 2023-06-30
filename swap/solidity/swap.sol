@@ -11,7 +11,6 @@ contract swap {
     address private mint1Address;
 
     @payer(payer) // payer address
-    @seed("pool") // hardcoded seed
     @seed(abi.encode(mint0)) // mint0 address (first token in the pool)
     @seed(abi.encode(mint1)) // mint1 address (second token in the pool)
     @bump(bump) // bump seed for pda address
@@ -147,7 +146,7 @@ contract swap {
     function mintTo(address account, uint64 amount) internal view {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
-        (address pool, bytes1 poolBump) = try_find_program_address(["pool", abi.encode(mint0Address), abi.encode(mint1Address)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
 
         // Prepare instruction data
@@ -163,6 +162,60 @@ contract swap {
         ];
 
         // Invoke the token program with prepared accounts and instruction data
-        SplToken.tokenProgramId.call{accounts: metas, seeds: [["pool", abi.encode(mint0Address), abi.encode(mint1Address), abi.encode(poolBump)]]}(instructionData);
+        SplToken.tokenProgramId.call{accounts: metas, seeds: [[abi.encode(mint0Address), abi.encode(mint1Address), abi.encode(poolBump)]]}(instructionData);
+    }
+
+    // TODO: implement curve math
+    function withdraw(uint64 amount, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
+        address poolAddress = getPoolAddress();
+        address mint0Address = getMint0Address();
+        address mint1Address = getMint1Address();
+
+        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+
+        SplToken.burn(
+            liquidityProviderTokenAccount, // source account
+            liquidityProviderMint, // destination account
+            owner, // owner
+            amount // amount
+        );
+
+        // TODO: implement curve math
+        uint64 withdrawAmount = amount / 2;
+        transfer(
+            vault0TokenAccount, // destination account
+            tokenAccount0, // source account
+            withdrawAmount // amount
+        );
+        transfer(
+            vault1TokenAccount, // destination account
+            tokenAccount1, // source account
+            withdrawAmount // amount
+        );
+    }
+
+        // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
+    function transfer(address from, address to, uint64 amount) internal view {
+        address mint0Address = getMint0Address();
+        address mint1Address = getMint1Address();
+        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+
+
+        // Prepare instruction data
+        bytes instructionData = new bytes(9);
+        instructionData[0] = uint8(3); // Transfer instruction index
+        instructionData.writeUint64LE(amount, 1); // Amount to transfer
+
+        // Prepare accounts required by instruction
+        AccountMeta[3] metas = [
+            AccountMeta({pubkey: from, is_writable: true, is_signer: false}), // source account
+            AccountMeta({pubkey: to, is_writable: true, is_signer: false}), // destination account
+            AccountMeta({pubkey: poolAddress, is_writable: true, is_signer: true}) // owner
+        ];
+
+        // Invoke the token program with prepared accounts and instruction data
+        SplToken.tokenProgramId.call{accounts: metas, seeds: [[abi.encode(mint0Address), abi.encode(mint1Address), abi.encode(poolBump)]]}(instructionData);
     }
 }

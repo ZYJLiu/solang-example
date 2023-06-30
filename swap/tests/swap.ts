@@ -28,11 +28,7 @@ describe("swap", () => {
   let tokenAccount1: PublicKey
 
   const [poolAccount, poolAccountBump] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("pool"),
-      mint0.publicKey.toBuffer(),
-      mint1.publicKey.toBuffer(),
-    ],
+    [mint0.publicKey.toBuffer(), mint1.publicKey.toBuffer()],
     program.programId
   )
 
@@ -133,7 +129,7 @@ describe("swap", () => {
           isSigner: false,
         },
       ])
-      .rpc({ skipPreflight: true })
+      .rpc({ skipPreflight: true, commitment: "confirmed" })
 
     console.log("Your transaction signature", tx)
 
@@ -246,7 +242,7 @@ describe("swap", () => {
           isSigner: false,
         },
       ])
-      .rpc({ skipPreflight: true })
+      .rpc({ skipPreflight: true, commitment: "confirmed" })
 
     console.log("Your transaction signature", tx)
 
@@ -267,5 +263,90 @@ describe("swap", () => {
       liquidityProviderMint
     )
     assert.equal(Number(liquidityProviderMintAccount.supply), amount * 2)
+  })
+
+  it("Withdraw Liquidity", async () => {
+    const amount = 100
+    const withdrawAmount = amount / 2
+
+    const liquidityProviderTokenAccount =
+      await getOrCreateAssociatedTokenAccount(
+        connection,
+        wallet.payer,
+        liquidityProviderMint,
+        wallet.publicKey
+      )
+    const tx = await program.methods
+      .withdraw(
+        new anchor.BN(amount),
+        tokenAccount0,
+        tokenAccount1,
+        wallet.publicKey,
+        liquidityProviderTokenAccount.address
+      )
+      .accounts({ dataAccount: poolAccount })
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // token account owner
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: tokenAccount0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: liquidityProviderMint,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: liquidityProviderTokenAccount.address,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: poolAccount, // vault token account owner
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true, commitment: "confirmed" })
+
+    console.log("Your transaction signature", tx)
+
+    const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
+    assert.equal(Number(associatedTokenAccount0.amount), withdrawAmount)
+
+    const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
+    assert.equal(Number(associatedTokenAccount1.amount), withdrawAmount)
+
+    const vault0Account = await getAccount(connection, vault0)
+    assert.equal(Number(vault0Account.amount), withdrawAmount)
+
+    const vault1Account = await getAccount(connection, vault1)
+    assert.equal(Number(vault1Account.amount), withdrawAmount)
+
+    const liquidityProviderMintAccount = await getMint(
+      connection,
+      liquidityProviderMint
+    )
+    assert.equal(Number(liquidityProviderMintAccount.supply), amount)
   })
 })
