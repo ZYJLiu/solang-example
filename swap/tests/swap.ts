@@ -2,7 +2,14 @@ import * as anchor from "@coral-xyz/anchor"
 import { Program, Wallet } from "@coral-xyz/anchor"
 import { Swap } from "../target/types/swap"
 import { PublicKey, Keypair, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
-import { createMint, getAccount, getMint } from "@solana/spl-token"
+import {
+  createAssociatedTokenAccount,
+  createMint,
+  getAccount,
+  getMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+} from "@solana/spl-token"
 import { assert } from "chai"
 
 describe("swap", () => {
@@ -17,6 +24,8 @@ describe("swap", () => {
 
   const mint0 = Keypair.generate()
   const mint1 = Keypair.generate()
+  let tokenAccount0: PublicKey
+  let tokenAccount1: PublicKey
 
   const [poolAccount, poolAccountBump] = PublicKey.findProgramAddressSync(
     [
@@ -46,6 +55,38 @@ describe("swap", () => {
   before(async () => {
     await createMint(connection, wallet.payer, wallet.publicKey, null, 9, mint0)
     await createMint(connection, wallet.payer, wallet.publicKey, null, 9, mint1)
+
+    tokenAccount0 = await createAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      mint0.publicKey,
+      wallet.publicKey
+    )
+
+    tokenAccount1 = await createAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      mint1.publicKey,
+      wallet.publicKey
+    )
+
+    await mintTo(
+      connection,
+      wallet.payer,
+      mint0.publicKey,
+      tokenAccount0,
+      wallet.publicKey,
+      100
+    )
+
+    await mintTo(
+      connection,
+      wallet.payer,
+      mint1.publicKey,
+      tokenAccount1,
+      wallet.publicKey,
+      100
+    )
   })
 
   it("Is initialized!", async () => {
@@ -119,5 +160,112 @@ describe("swap", () => {
       liquidityProviderMintAccount.freezeAuthority.toBase58(),
       poolAccount.toBase58()
     )
+    assert.equal(Number(liquidityProviderMintAccount.supply), 0)
+  })
+
+  it("Get Addresses", async () => {
+    const poolAddress = await program.methods
+      .getPoolAddress()
+      .accounts({ dataAccount: poolAccount })
+      .view()
+
+    console.log("Pool:", poolAddress.toBase58())
+
+    const mint0Address = await program.methods
+      .getMint0Address()
+      .accounts({ dataAccount: poolAccount })
+      .view()
+    console.log("Mint0:", mint0Address.toBase58())
+
+    const mint1Address = await program.methods
+      .getMint1Address()
+      .accounts({ dataAccount: poolAccount })
+      .view()
+    console.log("Mint1:", mint1Address.toBase58())
+  })
+
+  it("Deposit Liquidity", async () => {
+    const amount = 100
+
+    const liquidityProviderTokenAccount =
+      await getOrCreateAssociatedTokenAccount(
+        connection,
+        wallet.payer,
+        liquidityProviderMint,
+        wallet.publicKey
+      )
+    const tx = await program.methods
+      .deposit(
+        new anchor.BN(amount),
+        new anchor.BN(amount),
+        tokenAccount0,
+        tokenAccount1,
+        wallet.publicKey,
+        liquidityProviderTokenAccount.address
+      )
+      .accounts({ dataAccount: poolAccount })
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey,
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: tokenAccount0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: liquidityProviderMint,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: liquidityProviderTokenAccount.address,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: poolAccount, // mint authority
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true })
+
+    console.log("Your transaction signature", tx)
+
+    const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
+    assert.equal(Number(associatedTokenAccount0.amount), 0)
+
+    const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
+    assert.equal(Number(associatedTokenAccount1.amount), 0)
+
+    const vault0Account = await getAccount(connection, vault0)
+    assert.equal(Number(vault0Account.amount), amount)
+
+    const vault1Account = await getAccount(connection, vault1)
+    assert.equal(Number(vault1Account.amount), amount)
+
+    const liquidityProviderMintAccount = await getMint(
+      connection,
+      liquidityProviderMint
+    )
+    assert.equal(Number(liquidityProviderMintAccount.supply), amount * 2)
   })
 })
