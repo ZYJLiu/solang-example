@@ -1,13 +1,8 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Program, Wallet } from "@coral-xyz/anchor"
 import { Swap } from "../target/types/swap"
-import {
-  PublicKey,
-  Keypair,
-  SYSVAR_RENT_PUBKEY,
-  SystemProgram,
-} from "@solana/web3.js"
-import { TOKEN_PROGRAM_ID, createMint, getAccount } from "@solana/spl-token"
+import { PublicKey, Keypair, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
+import { createMint, getAccount, getMint } from "@solana/spl-token"
 import { assert } from "chai"
 
 describe("swap", () => {
@@ -66,15 +61,11 @@ describe("swap", () => {
       .accounts({ dataAccount: poolAccount })
       .remainingAccounts([
         {
-          pubkey: wallet.publicKey,
-          isWritable: true,
-          isSigner: true,
-        },
-        {
           pubkey: vault0,
           isWritable: true,
           isSigner: false,
         },
+
         {
           pubkey: vault1,
           isWritable: true,
@@ -91,13 +82,13 @@ describe("swap", () => {
           isSigner: false,
         },
         {
-          pubkey: SYSVAR_RENT_PUBKEY,
-          isWritable: false,
+          pubkey: liquidityProviderMint,
+          isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: liquidityProviderMint,
-          isWritable: true,
+          pubkey: SYSVAR_RENT_PUBKEY,
+          isWritable: false,
           isSigner: false,
         },
       ])
@@ -114,5 +105,19 @@ describe("swap", () => {
     assert.equal(vault1Account.mint.toBase58(), mint1.publicKey.toBase58())
     assert.equal(vault1Account.owner.toBase58(), poolAccount.toBase58())
     assert.equal(Number(vault1Account.amount), 0)
+
+    const liquidityProviderMintAccount = await getMint(
+      connection,
+      liquidityProviderMint
+    )
+    assert.equal(liquidityProviderMintAccount.decimals, 9)
+    assert.equal(
+      liquidityProviderMintAccount.mintAuthority.toBase58(),
+      poolAccount.toBase58()
+    )
+    assert.equal(
+      liquidityProviderMintAccount.freezeAuthority.toBase58(),
+      poolAccount.toBase58()
+    )
   })
 })

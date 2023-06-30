@@ -13,9 +13,11 @@ contract swap {
     @seed(abi.encode(mint1)) // mint1 address (second token in the pool)
     @bump(bump) // bump seed for pda address
     constructor(address payer, address pool, address mint0, address mint1, bytes bump) {
-        // createLiquidityProviderMint(payer, pool);
+        // Create and initialize vault token accounts for the pool
         createVaultTokenAccount(payer, mint0, pool);
         createVaultTokenAccount(payer, mint1, pool);
+        // Create and initialize liquidity provider mint account for the pool
+        createLiquidityProviderMint(payer, pool);
     }
 
     // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
@@ -34,7 +36,7 @@ contract swap {
         );
     }
 
-    // Invoke the system program to create an account, with space for token account
+    // Invoke the system program to create an account, with space for a token account
     function createTokenAccount(address payer, address newAccount, address mint, address pool, bytes bump) internal view{
         // Prepare accounts required by instruction
         AccountMeta[2] metas = [
@@ -56,13 +58,19 @@ contract swap {
 
     // Instruction to create and initialize a mint account
     function createLiquidityProviderMint(address payer, address pool) internal view {
+        // Derive the PDA address for the mint account
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
 
         // Create new account for mint using PDA as the address
         createMintAccount(payer, liquidityProviderMint, pool, liquidityProviderMintBump);
 
         // // Initialize mint account
-        SplToken.initialize_mint(liquidityProviderMint, pool, pool, 9);
+        SplToken.initialize_mint(
+            liquidityProviderMint, // mint account
+            pool, // mint authority (pool account PDA is the mint authority)
+            pool, // freeze authority
+            9 // decimals
+        );
     }
 
     // Invoke the system program to create an account, with space for mint account
