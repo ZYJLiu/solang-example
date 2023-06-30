@@ -28,7 +28,7 @@ contract swap {
     // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
     function createVaultTokenAccount(address payer, address mint, address pool) internal view {
         // Derive the PDA address for the token account
-        (address vaultTokenAccount, bytes1 vaultTokenAccountBump) = try_find_program_address([abi.encode(mint), abi.encode(pool)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address vaultTokenAccount, bytes1 vaultTokenAccountBump) = try_find_program_address([abi.encode(mint), abi.encode(pool)], type(swap).program_id);
 
         // Create new token account with the PDA as the address
         createTokenAccount(payer, vaultTokenAccount, mint, pool, vaultTokenAccountBump);
@@ -64,7 +64,7 @@ contract swap {
     // Instruction to create and initialize a mint account
     function createLiquidityProviderMint(address payer, address pool) internal view {
         // Derive the PDA address for the mint account
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(swap).program_id);
 
         // Create new account for mint using PDA as the address
         createMintAccount(payer, liquidityProviderMint, pool, liquidityProviderMintBump);
@@ -117,9 +117,9 @@ contract swap {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
 
-        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
-        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], type(swap).program_id);
+        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
+        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], type(swap).program_id);
         print("Vault0: {:}".format(vault0TokenAccount));
         print("Vault1: {:}".format(vault1TokenAccount));
         print("LP Mint: {:}".format(liquidityProviderMint));
@@ -146,8 +146,8 @@ contract swap {
     function mintTo(address account, uint64 amount) internal view {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
-        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], type(swap).program_id);
+        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(swap).program_id);
 
         // Prepare instruction data
         bytes instructionData = new bytes(9);
@@ -171,9 +171,9 @@ contract swap {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
 
-        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
-        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], type(swap).program_id);
+        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
+        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], type(swap).program_id);
 
         SplToken.burn(
             liquidityProviderTokenAccount, // source account
@@ -200,7 +200,7 @@ contract swap {
     function transfer(address from, address to, uint64 amount) internal view {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
-        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], address"SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS");
+        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], type(swap).program_id);
 
 
         // Prepare instruction data
