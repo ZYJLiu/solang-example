@@ -3,6 +3,7 @@
 import "./system_instruction.sol";
 import "./spl_token.sol";
 import "solana";
+import "./Math.sol";
 
 @program_id("SGqsu3tC2MnFc3UuvxyNdQZa6EQF4PT7SNBSZuWfkrS")
 contract swap {
@@ -110,7 +111,6 @@ contract swap {
         SystemInstruction.systemAddress.call{accounts: metas, seeds: [[abi.encode(pool), bump]]}(instructionData);
     }
 
-    // TODO: implement curve math
     function deposit(uint64 amount0, uint64 amount1, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
         address poolAddress = getPoolAddress();
         address mint0Address = getMint0Address();
@@ -122,6 +122,30 @@ contract swap {
         print("Vault0: {:}".format(vault0TokenAccount));
         print("Vault1: {:}".format(vault1TokenAccount));
         print("LP Mint: {:}".format(liquidityProviderMint));
+
+        SplToken.TokenAccountData vault0TokenAccountData = SplToken.get_token_account_data(vault0TokenAccount);
+        SplToken.TokenAccountData vault1TokenAccountData = SplToken.get_token_account_data(vault1TokenAccount);
+
+        // Amount of LP tokens to mint
+        uint64 liquidity;
+        uint64 _reserve0 = vault0TokenAccountData.balance;
+        uint64 _reserve1 = vault1TokenAccountData.balance;
+        uint64 _totalSupply = SplToken.total_supply(liquidityProviderMint);
+        print("Vault0 Amount: {:}".format(_reserve0));
+        print("Vault1 Amount: {:}".format(_reserve1));
+        print("LP Mint Supply: {:}".format(_totalSupply));
+
+        // Calculate amount of LP tokens to mint, MINIMUM_LIQUIDITY not included
+        // TODO: check if this is correct
+        if (_totalSupply == 0) {
+            liquidity = uint64(Math.sqrt(amount0 * amount1));
+        } else {
+            liquidity = uint64(Math.min(amount0 * _totalSupply / _reserve0, amount1 * _totalSupply / _reserve1));
+        }
+
+        // Mint LP tokens to token account
+        mintTo(liquidityProviderTokenAccount, liquidity);
+        print("LP Tokens Minted: {:}".format(liquidity));
 
         // Transfer tokens from owner to vault
         SplToken.transfer(
@@ -138,10 +162,6 @@ contract swap {
             owner, // owner
             amount1 // amount
         );
-
-        // TODO: implement curve math
-        // Mint liquidity tokens to liquidity provider's token account
-        mintTo(liquidityProviderTokenAccount, amount0 + amount1);
     }
 
     // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
@@ -169,7 +189,7 @@ contract swap {
 
     // TODO: implement curve math
     // Burn liquidity tokens to withdraw tokens from the pool
-    function withdraw(uint64 amount, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
+    function withdraw(uint64 amountBurn, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
         address poolAddress = getPoolAddress();
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
@@ -178,26 +198,39 @@ contract swap {
         (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], type(swap).program_id);
 
+        SplToken.TokenAccountData vault0TokenAccountData = SplToken.get_token_account_data(vault0TokenAccount);
+        SplToken.TokenAccountData vault1TokenAccountData = SplToken.get_token_account_data(vault1TokenAccount);
+
+        uint64 balance0 = vault0TokenAccountData.balance;
+        uint64 balance1 = vault1TokenAccountData.balance;
+        uint64 _totalSupply = SplToken.total_supply(liquidityProviderMint);
+        print("Vault0 Amount: {:}".format(balance0));
+        print("Vault1 Amount: {:}".format(balance1));
+        print("LP Mint Supply: {:}".format(_totalSupply));
+
+        // Calculate amount of tokens to withdraw from vaults
+        uint64 amount0 = amountBurn * balance0 / _totalSupply;
+        uint64 amount1 = amountBurn * balance1 / _totalSupply;
+        print("Withdraw Amount Mint0: {:}".format(amount0));
+        print("Withdraw Amount Mint1: {:}".format(amount1));
+
         // Invoke the token program to burn liquidity tokens
         SplToken.burn(
             liquidityProviderTokenAccount, // source account
             liquidityProviderMint, // destination account
             owner, // owner
-            amount // amount
+            amountBurn // amount
         );
 
-        // TODO: implement curve math
-        // Withdraw token amounts from the pool
-        uint64 withdrawAmount = amount / 2;
         transfer(
             vault0TokenAccount, // destination account
             tokenAccount0, // source account
-            withdrawAmount // amount
+            amount0 // amount
         );
         transfer(
             vault1TokenAccount, // destination account
             tokenAccount1, // source account
-            withdrawAmount // amount
+            amount1 // amount
         );
     }
 
@@ -223,7 +256,8 @@ contract swap {
         SplToken.tokenProgramId.call{accounts: metas, seeds: [[abi.encode(mint0Address), abi.encode(mint1Address), abi.encode(poolBump)]]}(instructionData);
     }
 
-    function swapToken(uint64 amount, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
+    // Swap tokens in the pool
+    function swapToken(uint64 amountIn, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
         address poolAddress = getPoolAddress();
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
@@ -231,37 +265,62 @@ contract swap {
         (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], type(swap).program_id);
         (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
 
+        address reserveInTokenAccount;
+        address reserveOutTokenAccount;
+
         // Get the token account data for the source token account
         SplToken.TokenAccountData sourceTokenAccountData = SplToken.get_token_account_data(sourceTokenAccount);
 
-        address vaultSourceTokenAccount;
-        address vaultDestinationTokenAccount;
-
-        // Determine which vault token account to use as the source and destination
+        // Determine vaults to swap between based on the source token account
+        // reserveIn is the token the user is providing to the pool
+        // reserveOut is the token the user is receiving from the pool
         if (sourceTokenAccountData.mintAccount == mint0Address) {
-            vaultSourceTokenAccount = vault1TokenAccount;
-            vaultDestinationTokenAccount = vault0TokenAccount;
+            reserveInTokenAccount = vault0TokenAccount;
+            reserveOutTokenAccount = vault1TokenAccount;
         } else {
-            vaultSourceTokenAccount = vault0TokenAccount;
-            vaultDestinationTokenAccount = vault1TokenAccount;
+            reserveInTokenAccount = vault1TokenAccount;
+            reserveOutTokenAccount = vault0TokenAccount;
         }
+
+        // Get the token account data for the vault token accounts
+        SplToken.TokenAccountData reserveInTokenAccountData = SplToken.get_token_account_data(reserveInTokenAccount);
+        SplToken.TokenAccountData reserveOutTokenAccountData = SplToken.get_token_account_data(reserveOutTokenAccount);
+        uint64 reserveIn = reserveInTokenAccountData.balance;
+        uint64 reserveOut = reserveOutTokenAccountData.balance;
+        print("Reserve In: {:}".format(reserveIn));
+        print("Reserve Out: {:}".format(reserveOut));
 
         // Transfer tokens from the user's token account to the vault token account
         // This is the token the user is providing to the pool
         SplToken.transfer(
             sourceTokenAccount, // source account
-            vaultDestinationTokenAccount, // destination account
+            reserveInTokenAccount, // destination account
             user, // owner
-            amount // amount
+            amountIn // amount
         );
 
-        // TODO: implement curve math
+        // Calculate the amount of tokens the user will receive from the pool
+        uint64 amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
+        print("Amount In: {:}".format(amountIn));
+        print("Amount Out: {:}".format(amountOut));
+
         // Transfer tokens from the vault token account to the user's token account
         // This is the token the user is receiving from the pool
         transfer(
-            vaultSourceTokenAccount, // source account
+            reserveOutTokenAccount, // source account
             destinationTokenAccount, // destination account
-            amount // amount
+            amountOut // amount
         );
+    }
+
+    // Calculate the amount of tokens the user will receive from the pool
+    // Reference: https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol#L43
+    function getAmountOut(uint64 amountIn, uint64 reserveIn, uint64 reserveOut) internal pure returns (uint64 amountOut) {
+        require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
+        uint64 amountInWithFee = amountIn * 997; // 0.3% fee
+        uint64 numerator = amountInWithFee * reserveOut;
+        uint64 denominator = reserveIn * 1000 + amountInWithFee;
+        amountOut = numerator / denominator;
     }
 }

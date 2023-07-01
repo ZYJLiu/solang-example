@@ -86,7 +86,7 @@ describe("swap", () => {
       mint0.publicKey,
       tokenAccount0,
       wallet.publicKey,
-      100
+      100_000
     )
 
     // Mint tokens to the wallet's associated token accounts
@@ -96,7 +96,7 @@ describe("swap", () => {
       mint1.publicKey,
       tokenAccount1,
       wallet.publicKey,
-      100
+      100_000
     )
   })
 
@@ -195,7 +195,7 @@ describe("swap", () => {
   })
 
   it("Deposit Liquidity", async () => {
-    const amount = 100
+    const amount = 100_000
 
     // Create the wallet's associated token accounts for the liquidity provider mint
     // TODO: This should be done conditionally within the program
@@ -279,12 +279,11 @@ describe("swap", () => {
       connection,
       liquidityProviderMint
     )
-    assert.equal(Number(liquidityProviderMintAccount.supply), amount * 2)
+    assert.equal(Number(liquidityProviderMintAccount.supply), amount)
   })
 
   it("Withdraw Liquidity", async () => {
-    const amount = 100
-    const withdrawAmount = amount / 2
+    const amount = 50_000
 
     // Get the liquidity provider token account address for the wallet
     // This account should already exist
@@ -352,16 +351,16 @@ describe("swap", () => {
     console.log("Your transaction signature", tx)
 
     const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
-    assert.equal(Number(associatedTokenAccount0.amount), withdrawAmount)
+    assert.equal(Number(associatedTokenAccount0.amount), amount)
 
     const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
-    assert.equal(Number(associatedTokenAccount1.amount), withdrawAmount)
+    assert.equal(Number(associatedTokenAccount1.amount), amount)
 
     const vault0Account = await getAccount(connection, vault0)
-    assert.equal(Number(vault0Account.amount), withdrawAmount)
+    assert.equal(Number(vault0Account.amount), amount)
 
     const vault1Account = await getAccount(connection, vault1)
-    assert.equal(Number(vault1Account.amount), withdrawAmount)
+    assert.equal(Number(vault1Account.amount), amount)
 
     const liquidityProviderMintAccount = await getMint(
       connection,
@@ -371,12 +370,33 @@ describe("swap", () => {
   })
 
   it("Swap Mint0 -> Mint1", async () => {
-    const balance = 50
-    const amount = 1
+    const amountIn = 1000
+
+    const initialUserTokenAccount0 = await getAccount(connection, tokenAccount0)
+    const initialUserTokenAccount1 = await getAccount(connection, tokenAccount1)
+    const initialVault0Account = await getAccount(connection, vault0)
+    const initialVault1Account = await getAccount(connection, vault1)
+
+    const reserveIn = Number(initialVault0Account.amount)
+    const reserveOut = Number(initialVault1Account.amount)
+    const userTokenBalance0 = Number(initialUserTokenAccount0.amount)
+    const userTokenBalance1 = Number(initialUserTokenAccount1.amount)
+
+    const amountOut = calculateSwapOutput(amountIn, reserveIn, reserveOut)
+
+    const expectedUserTokenBalance0 = userTokenBalance0 - amountIn
+    const expectedUserTokenBalance1 = userTokenBalance1 + amountOut
+    const expectedVaultBalance0 = reserveIn + amountIn
+    const expectedVaultBalance1 = reserveOut - amountOut
+
+    // console.log("expectedUserTokenBalance1", expectedUserTokenBalance1)
+    // console.log("expectedUserTokenBalance0", expectedUserTokenBalance0)
+    // console.log("expectedVaultBalance1", expectedVaultBalance1)
+    // console.log("expectedVaultBalance0", expectedVaultBalance0)
 
     const tx = await program.methods
       .swapToken(
-        new anchor.BN(amount), // amount of tokens to swap (from source token account)
+        new anchor.BN(amountIn), // amount of tokens to swap (from source token account)
         tokenAccount0, // source token account (transfer tokens from this account)
         tokenAccount1, // destination token account (receive tokens to this account)
         wallet.publicKey // token account owner
@@ -419,25 +439,52 @@ describe("swap", () => {
     console.log("Your transaction signature", tx)
 
     const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
-    assert.equal(Number(associatedTokenAccount0.amount), balance - amount)
+    assert.equal(
+      Number(associatedTokenAccount0.amount),
+      expectedUserTokenBalance0
+    )
 
     const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
-    assert.equal(Number(associatedTokenAccount1.amount), balance + amount)
+    assert.equal(
+      Number(associatedTokenAccount1.amount),
+      expectedUserTokenBalance1
+    )
 
     const vault0Account = await getAccount(connection, vault0)
-    assert.equal(Number(vault0Account.amount), balance + amount)
+    assert.equal(Number(vault0Account.amount), expectedVaultBalance0)
 
     const vault1Account = await getAccount(connection, vault1)
-    assert.equal(Number(vault1Account.amount), balance - amount)
+    assert.equal(Number(vault1Account.amount), expectedVaultBalance1)
   })
 
   it("Swap Mint1 -> Mint0", async () => {
-    const balance = 50
-    const amount = 1
+    const amountIn = 1000
+
+    const initialUserTokenAccount1 = await getAccount(connection, tokenAccount1)
+    const initialUserTokenAccount0 = await getAccount(connection, tokenAccount0)
+    const initialVault1Account = await getAccount(connection, vault1)
+    const initialVault0Account = await getAccount(connection, vault0)
+
+    const reserveIn = Number(initialVault1Account.amount)
+    const reserveOut = Number(initialVault0Account.amount)
+    const userTokenBalance1 = Number(initialUserTokenAccount1.amount)
+    const userTokenBalance0 = Number(initialUserTokenAccount0.amount)
+
+    const amountOut = calculateSwapOutput(amountIn, reserveIn, reserveOut)
+
+    const expectedUserTokenBalance1 = userTokenBalance1 - amountIn
+    const expectedUserTokenBalance0 = userTokenBalance0 + amountOut
+    const expectedVaultBalance1 = reserveIn + amountIn
+    const expectedVaultBalance0 = reserveOut - amountOut
+
+    // console.log("expectedUserTokenBalance1", expectedUserTokenBalance1)
+    // console.log("expectedUserTokenBalance0", expectedUserTokenBalance0)
+    // console.log("expectedVaultBalance1", expectedVaultBalance1)
+    // console.log("expectedVaultBalance0", expectedVaultBalance0)
 
     const tx = await program.methods
       .swapToken(
-        new anchor.BN(amount), // amount of tokens to swap (from source token account)
+        new anchor.BN(amountIn), // amount of tokens to swap (from source token account)
         tokenAccount1, // source token account (transfer tokens from this account)
         tokenAccount0, // destination token account (receive tokens to this account)
         wallet.publicKey // token account owner
@@ -479,16 +526,35 @@ describe("swap", () => {
 
     console.log("Your transaction signature", tx)
 
-    const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
-    assert.equal(Number(associatedTokenAccount0.amount), balance)
+    const associatedUserTokenAccount1 = await getAccount(
+      connection,
+      tokenAccount1
+    )
+    assert.equal(
+      Number(associatedUserTokenAccount1.amount),
+      expectedUserTokenBalance1
+    )
 
-    const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
-    assert.equal(Number(associatedTokenAccount1.amount), balance)
-
-    const vault0Account = await getAccount(connection, vault0)
-    assert.equal(Number(vault0Account.amount), balance)
+    const associatedUserTokenAccount0 = await getAccount(
+      connection,
+      tokenAccount0
+    )
+    assert.equal(
+      Number(associatedUserTokenAccount0.amount),
+      expectedUserTokenBalance0
+    )
 
     const vault1Account = await getAccount(connection, vault1)
-    assert.equal(Number(vault1Account.amount), balance)
+    assert.equal(Number(vault1Account.amount), expectedVaultBalance1)
+
+    const vault0Account = await getAccount(connection, vault0)
+    assert.equal(Number(vault0Account.amount), expectedVaultBalance0)
   })
 })
+
+function calculateSwapOutput(amountIn, reserveIn, reserveOut) {
+  let amountInWithFee = amountIn * 997
+  let numerator = amountInWithFee * reserveOut
+  let denominator = reserveIn * 1000 + amountInWithFee
+  return Math.floor(numerator / denominator)
+}
