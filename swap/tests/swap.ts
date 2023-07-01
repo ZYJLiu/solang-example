@@ -349,4 +349,126 @@ describe("swap", () => {
     )
     assert.equal(Number(liquidityProviderMintAccount.supply), amount)
   })
+
+  it("Swap Mint0 -> Mint1", async () => {
+    const balance = 50
+    const amount = 1
+
+    const tx = await program.methods
+      .swapToken(
+        new anchor.BN(amount), // amount
+        tokenAccount0, // source token account
+        tokenAccount1, // destination token account
+        wallet.publicKey // token account owner
+      )
+      .accounts({ dataAccount: poolAccount })
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // token account owner
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: tokenAccount0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: poolAccount, // vault token account owner
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true, commitment: "confirmed" })
+
+    console.log("Your transaction signature", tx)
+
+    const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
+    assert.equal(Number(associatedTokenAccount0.amount), balance - amount)
+
+    const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
+    assert.equal(Number(associatedTokenAccount1.amount), balance + amount)
+
+    const vault0Account = await getAccount(connection, vault0)
+    assert.equal(Number(vault0Account.amount), balance + amount)
+
+    const vault1Account = await getAccount(connection, vault1)
+    assert.equal(Number(vault1Account.amount), balance - amount)
+  })
+
+  it("Swap Mint1 -> Mint0", async () => {
+    const balance = 50
+    const amount = 1
+
+    const tx = await program.methods
+      .swapToken(
+        new anchor.BN(amount), // amount
+        tokenAccount1, // source token account
+        tokenAccount0, // destination token account
+        wallet.publicKey // token account owner
+      )
+      .accounts({ dataAccount: poolAccount })
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey, // token account owner
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: tokenAccount0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault0,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: vault1,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: poolAccount, // vault token account owner
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc({ skipPreflight: true, commitment: "confirmed" })
+
+    console.log("Your transaction signature", tx)
+
+    const associatedTokenAccount0 = await getAccount(connection, tokenAccount0)
+    assert.equal(Number(associatedTokenAccount0.amount), balance)
+
+    const associatedTokenAccount1 = await getAccount(connection, tokenAccount1)
+    assert.equal(Number(associatedTokenAccount1.amount), balance)
+
+    const vault0Account = await getAccount(connection, vault0)
+    assert.equal(Number(vault0Account.amount), balance)
+
+    const vault1Account = await getAccount(connection, vault1)
+    assert.equal(Number(vault1Account.amount), balance)
+  })
 })

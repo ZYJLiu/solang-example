@@ -142,7 +142,7 @@ contract swap {
         mintTo(liquidityProviderTokenAccount, amount0 + amount1);
     }
 
-        // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
+    // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
     function mintTo(address account, uint64 amount) internal view {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
@@ -166,6 +166,7 @@ contract swap {
     }
 
     // TODO: implement curve math
+    // Burn liquidity tokens to withdraw tokens from the pool
     function withdraw(uint64 amount, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
         address poolAddress = getPoolAddress();
         address mint0Address = getMint0Address();
@@ -175,6 +176,7 @@ contract swap {
         (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(poolAddress)], type(swap).program_id);
 
+        // Invoke the token program to burn liquidity tokens
         SplToken.burn(
             liquidityProviderTokenAccount, // source account
             liquidityProviderMint, // destination account
@@ -183,6 +185,7 @@ contract swap {
         );
 
         // TODO: implement curve math
+        // Withdraw token amounts from the pool
         uint64 withdrawAmount = amount / 2;
         transfer(
             vault0TokenAccount, // destination account
@@ -196,7 +199,7 @@ contract swap {
         );
     }
 
-        // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
+    // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
     function transfer(address from, address to, uint64 amount) internal view {
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
@@ -217,5 +220,42 @@ contract swap {
 
         // Invoke the token program with prepared accounts and instruction data
         SplToken.tokenProgramId.call{accounts: metas, seeds: [[abi.encode(mint0Address), abi.encode(mint1Address), abi.encode(poolBump)]]}(instructionData);
+    }
+
+    function swapToken(uint64 amount, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
+        address poolAddress = getPoolAddress();
+        address mint0Address = getMint0Address();
+        address mint1Address = getMint1Address();
+
+        (address vault0TokenAccount, bytes1 vault0TokenAccountBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(poolAddress)], type(swap).program_id);
+        (address vault1TokenAccount, bytes1 vault1TokenAccountBump) = try_find_program_address([abi.encode(mint1Address), abi.encode(poolAddress)], type(swap).program_id);
+
+        // Get the token account data for the source token account
+        SplToken.TokenAccountData sourceTokenAccountData = SplToken.get_token_account_data(sourceTokenAccount);
+
+        address vaultSourceTokenAccount;
+        address vaultDestinationTokenAccount;
+
+        if (sourceTokenAccountData.mintAccount == mint0Address) {
+            vaultSourceTokenAccount = vault1TokenAccount;
+            vaultDestinationTokenAccount = vault0TokenAccount;
+        } else {
+            vaultSourceTokenAccount = vault0TokenAccount;
+            vaultDestinationTokenAccount = vault1TokenAccount;
+        }
+
+        SplToken.transfer(
+            sourceTokenAccount, // source account
+            vaultDestinationTokenAccount, // destination account
+            user, // owner
+            amount // amount
+        );
+
+        // TODO: implement curve math
+        transfer(
+            vaultSourceTokenAccount, // source account
+            destinationTokenAccount, // destination account
+            amount // amount
+        );
     }
 }
