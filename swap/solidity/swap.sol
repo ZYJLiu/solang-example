@@ -25,6 +25,18 @@ contract swap {
         mint1Address = mint1;
     }
 
+    function getPoolAddress() public view returns (address) {
+        return poolAddress;
+    }
+
+    function getMint0Address() public view returns (address) {
+        return mint0Address;
+    }
+
+    function getMint1Address() public view returns (address) {
+        return mint1Address;
+    }
+
     // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
     function createVaultTokenAccount(address payer, address mint, address pool) internal view {
         // Derive the PDA address for the token account
@@ -98,21 +110,8 @@ contract swap {
         SystemInstruction.systemAddress.call{accounts: metas, seeds: [[abi.encode(pool), bump]]}(instructionData);
     }
 
-    function getPoolAddress() public view returns (address) {
-        return poolAddress;
-    }
-
-    function getMint0Address() public view returns (address) {
-        return mint0Address;
-    }
-
-    function getMint1Address() public view returns (address) {
-        return mint1Address;
-    }
-
     // TODO: implement curve math
     function deposit(uint64 amount0, uint64 amount1, address tokenAccount0, address tokenAccount1, address owner, address liquidityProviderTokenAccount) public view {
-        //  print("Value: {:}".format(test));
         address poolAddress = getPoolAddress();
         address mint0Address = getMint0Address();
         address mint1Address = getMint1Address();
@@ -124,6 +123,7 @@ contract swap {
         print("Vault1: {:}".format(vault1TokenAccount));
         print("LP Mint: {:}".format(liquidityProviderMint));
 
+        // Transfer tokens from owner to vault
         SplToken.transfer(
             tokenAccount0, // source account
             vault0TokenAccount, // destination account
@@ -131,6 +131,7 @@ contract swap {
             amount0 // amount
         );
 
+        // Transfer tokens from owner to vault
         SplToken.transfer(
             tokenAccount1, // source account
             vault1TokenAccount, // destination account
@@ -139,6 +140,7 @@ contract swap {
         );
 
         // TODO: implement curve math
+        // Mint liquidity tokens to liquidity provider's token account
         mintTo(liquidityProviderTokenAccount, amount0 + amount1);
     }
 
@@ -205,7 +207,6 @@ contract swap {
         address mint1Address = getMint1Address();
         (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mint0Address), abi.encode(mint1Address)], type(swap).program_id);
 
-
         // Prepare instruction data
         bytes instructionData = new bytes(9);
         instructionData[0] = uint8(3); // Transfer instruction index
@@ -236,6 +237,7 @@ contract swap {
         address vaultSourceTokenAccount;
         address vaultDestinationTokenAccount;
 
+        // Determine which vault token account to use as the source and destination
         if (sourceTokenAccountData.mintAccount == mint0Address) {
             vaultSourceTokenAccount = vault1TokenAccount;
             vaultDestinationTokenAccount = vault0TokenAccount;
@@ -244,6 +246,8 @@ contract swap {
             vaultDestinationTokenAccount = vault1TokenAccount;
         }
 
+        // Transfer tokens from the user's token account to the vault token account
+        // This is the token the user is providing to the pool
         SplToken.transfer(
             sourceTokenAccount, // source account
             vaultDestinationTokenAccount, // destination account
@@ -252,6 +256,8 @@ contract swap {
         );
 
         // TODO: implement curve math
+        // Transfer tokens from the vault token account to the user's token account
+        // This is the token the user is receiving from the pool
         transfer(
             vaultSourceTokenAccount, // source account
             destinationTokenAccount, // destination account

@@ -22,36 +22,48 @@ describe("swap", () => {
 
   const program = anchor.workspace.Swap as Program<Swap>
 
+  // Keypairs to create mints to use for testing
   const mint0 = Keypair.generate()
   const mint1 = Keypair.generate()
+
+  // Wallet's associated token accounts for the mints
   let tokenAccount0: PublicKey
   let tokenAccount1: PublicKey
 
+  // The pool account that will be created
+  // This is the data account that stores the pool's state (data related to the pool)
+  // Ex. vault token accounts, liquidity provider mint, etc.
   const [poolAccount, poolAccountBump] = PublicKey.findProgramAddressSync(
     [mint0.publicKey.toBuffer(), mint1.publicKey.toBuffer()],
     program.programId
   )
 
+  // The vault token account for mint0, (tokens controlled by the pool)
   const [vault0, vault0Bump] = PublicKey.findProgramAddressSync(
     [mint0.publicKey.toBuffer(), poolAccount.toBuffer()],
     program.programId
   )
 
+  // The vault token accounts for mint1, (tokens controlled by the pool)
   const [vault1, vault1Bump] = PublicKey.findProgramAddressSync(
     [mint1.publicKey.toBuffer(), poolAccount.toBuffer()],
     program.programId
   )
 
+  // The liquidity provider mint for the pool, minted when liquidity is added to the pool
   const [liquidityProviderMint, liquidityProviderMintBump] =
     PublicKey.findProgramAddressSync(
       [poolAccount.toBuffer()],
       program.programId
     )
 
+  // Setup the mints and token accounts for testing
   before(async () => {
+    // Create the mints for testing
     await createMint(connection, wallet.payer, wallet.publicKey, null, 9, mint0)
     await createMint(connection, wallet.payer, wallet.publicKey, null, 9, mint1)
 
+    // Create the wallet's associated token accounts for mint0
     tokenAccount0 = await createAssociatedTokenAccount(
       connection,
       wallet.payer,
@@ -59,6 +71,7 @@ describe("swap", () => {
       wallet.publicKey
     )
 
+    // Create the wallet's associated token accounts for mint1
     tokenAccount1 = await createAssociatedTokenAccount(
       connection,
       wallet.payer,
@@ -66,6 +79,7 @@ describe("swap", () => {
       wallet.publicKey
     )
 
+    // Mint tokens to the wallet's associated token accounts
     await mintTo(
       connection,
       wallet.payer,
@@ -75,6 +89,7 @@ describe("swap", () => {
       100
     )
 
+    // Mint tokens to the wallet's associated token accounts
     await mintTo(
       connection,
       wallet.payer,
@@ -85,26 +100,25 @@ describe("swap", () => {
     )
   })
 
-  it("Is initialized!", async () => {
-    // Add your test here.
+  it("Initialize Pool", async () => {
     const tx = await program.methods
       .new(
-        wallet.publicKey,
-        poolAccount,
-        mint0.publicKey,
-        mint1.publicKey,
+        wallet.publicKey, // payer
+        poolAccount, // pool account (data account) to create
+        mint0.publicKey, // mint0
+        mint1.publicKey, // mint1
         Buffer.from([poolAccountBump])
       )
       .accounts({ dataAccount: poolAccount })
       .remainingAccounts([
         {
-          pubkey: vault0,
+          pubkey: vault0, // vault0 token account (to create)
           isWritable: true,
           isSigner: false,
         },
 
         {
-          pubkey: vault1,
+          pubkey: vault1, // vault1 token account (to create)
           isWritable: true,
           isSigner: false,
         },
@@ -119,7 +133,7 @@ describe("swap", () => {
           isSigner: false,
         },
         {
-          pubkey: liquidityProviderMint,
+          pubkey: liquidityProviderMint, // liquidity provider mint (to create)
           isWritable: true,
           isSigner: false,
         },
@@ -183,6 +197,8 @@ describe("swap", () => {
   it("Deposit Liquidity", async () => {
     const amount = 100
 
+    // Create the wallet's associated token accounts for the liquidity provider mint
+    // TODO: This should be done conditionally within the program
     const liquidityProviderTokenAccount =
       await getOrCreateAssociatedTokenAccount(
         connection,
@@ -190,14 +206,15 @@ describe("swap", () => {
         liquidityProviderMint,
         wallet.publicKey
       )
+
     const tx = await program.methods
       .deposit(
-        new anchor.BN(amount),
-        new anchor.BN(amount),
-        tokenAccount0,
-        tokenAccount1,
-        wallet.publicKey,
-        liquidityProviderTokenAccount.address
+        new anchor.BN(amount), // amount of liquidity to deposit for mint0
+        new anchor.BN(amount), // amount of liquidity to deposit for mint1
+        tokenAccount0, // token account for mint0
+        tokenAccount1, // token account for mint1
+        wallet.publicKey, // owner of the token accounts
+        liquidityProviderTokenAccount.address // token account for the liquidity provider mint
       )
       .accounts({ dataAccount: poolAccount })
       .remainingAccounts([
@@ -269,6 +286,8 @@ describe("swap", () => {
     const amount = 100
     const withdrawAmount = amount / 2
 
+    // Get the liquidity provider token account address for the wallet
+    // This account should already exist
     const liquidityProviderTokenAccount =
       await getOrCreateAssociatedTokenAccount(
         connection,
@@ -276,13 +295,14 @@ describe("swap", () => {
         liquidityProviderMint,
         wallet.publicKey
       )
+
     const tx = await program.methods
       .withdraw(
-        new anchor.BN(amount),
-        tokenAccount0,
-        tokenAccount1,
-        wallet.publicKey,
-        liquidityProviderTokenAccount.address
+        new anchor.BN(amount), // amount of liquidity tokens to burn
+        tokenAccount0, // token account for mint0
+        tokenAccount1, // token account for mint1
+        wallet.publicKey, // owner of the token accounts
+        liquidityProviderTokenAccount.address // token account for the liquidity provider mint (burn tokens from this account)
       )
       .accounts({ dataAccount: poolAccount })
       .remainingAccounts([
@@ -322,7 +342,7 @@ describe("swap", () => {
           isSigner: false,
         },
         {
-          pubkey: poolAccount, // vault token account owner
+          pubkey: poolAccount, // vault token account owner (allows program to transfer tokens from vault token accounts)
           isWritable: true,
           isSigner: false,
         },
@@ -356,9 +376,9 @@ describe("swap", () => {
 
     const tx = await program.methods
       .swapToken(
-        new anchor.BN(amount), // amount
-        tokenAccount0, // source token account
-        tokenAccount1, // destination token account
+        new anchor.BN(amount), // amount of tokens to swap (from source token account)
+        tokenAccount0, // source token account (transfer tokens from this account)
+        tokenAccount1, // destination token account (receive tokens to this account)
         wallet.publicKey // token account owner
       )
       .accounts({ dataAccount: poolAccount })
@@ -389,7 +409,7 @@ describe("swap", () => {
           isSigner: false,
         },
         {
-          pubkey: poolAccount, // vault token account owner
+          pubkey: poolAccount, // vault token account owner (allows program to transfer tokens from vault token accounts)
           isWritable: true,
           isSigner: false,
         },
@@ -417,9 +437,9 @@ describe("swap", () => {
 
     const tx = await program.methods
       .swapToken(
-        new anchor.BN(amount), // amount
-        tokenAccount1, // source token account
-        tokenAccount0, // destination token account
+        new anchor.BN(amount), // amount of tokens to swap (from source token account)
+        tokenAccount1, // source token account (transfer tokens from this account)
+        tokenAccount0, // destination token account (receive tokens to this account)
         wallet.publicKey // token account owner
       )
       .accounts({ dataAccount: poolAccount })
@@ -450,7 +470,7 @@ describe("swap", () => {
           isSigner: false,
         },
         {
-          pubkey: poolAccount, // vault token account owner
+          pubkey: poolAccount, // vault token account owner (allows program to transfer tokens from vault token accounts)
           isWritable: true,
           isSigner: false,
         },
