@@ -39,23 +39,22 @@ describe("swap", () => {
   )
 
   // The reserve token account for mintA, (tokens controlled by the pool)
-  const [reserveA, reserveABump] = PublicKey.findProgramAddressSync(
+  const [reserveA] = PublicKey.findProgramAddressSync(
     [mintA.publicKey.toBuffer(), poolAccount.toBuffer()],
     program.programId
   )
 
   // The reserve token accounts for mintB, (tokens controlled by the pool)
-  const [reserveB, reserveBBump] = PublicKey.findProgramAddressSync(
+  const [reserveB] = PublicKey.findProgramAddressSync(
     [mintB.publicKey.toBuffer(), poolAccount.toBuffer()],
     program.programId
   )
 
   // The liquidity provider mint for the pool, minted when liquidity is added to the pool
-  const [liquidityProviderMint, liquidityProviderMintBump] =
-    PublicKey.findProgramAddressSync(
-      [poolAccount.toBuffer()],
-      program.programId
-    )
+  const [liquidityProviderMint] = PublicKey.findProgramAddressSync(
+    [poolAccount.toBuffer()],
+    program.programId
+  )
 
   // Setup the mints and token accounts for testing
   const initalAmount = 500_000
@@ -296,113 +295,52 @@ describe("swap", () => {
   })
 
   it("Swap mintA -> mintB", async () => {
-    const amountIn = 100_000
-
-    const initialTokenAccountA = await getAccount(connection, tokenAccountA)
-    const initialTokenAccountB = await getAccount(connection, tokenAccountB)
-    const initialReserveAAccount = await getAccount(connection, reserveA)
-    const initialReserveBAccount = await getAccount(connection, reserveB)
-
-    const reserveIn = Number(initialReserveAAccount.amount)
-    const reserveOut = Number(initialReserveBAccount.amount)
-    const tokenAccountABalance = Number(initialTokenAccountA.amount)
-    const tokenAccountBBalance = Number(initialTokenAccountB.amount)
-
-    const amountOut = calculateSwapOutput(amountIn, reserveIn, reserveOut)
-
-    const expectedTokenAccountABalance = tokenAccountABalance - amountIn
-    const expectedTokenAccountBBalance = tokenAccountBBalance + amountOut
-    const expectedReserveInBalance = reserveIn + amountIn
-    const expectedReserveOutBalance = reserveOut - amountOut
-
-    const tx = await program.methods
-      .swap(
-        new anchor.BN(amountIn), // amount of tokens to swap (from source token account)
-        tokenAccountA, // source token account (transfer tokens from this account)
-        tokenAccountB, // destination token account (receive tokens to this account)
-        wallet.publicKey // token account owner
-      )
-      .accounts({ dataAccount: poolAccount })
-      .remainingAccounts([
-        {
-          pubkey: wallet.publicKey, // token account owner
-          isWritable: true,
-          isSigner: true,
-        },
-        {
-          pubkey: tokenAccountA,
-          isWritable: true,
-          isSigner: false,
-        },
-        {
-          pubkey: reserveA,
-          isWritable: true,
-          isSigner: false,
-        },
-        {
-          pubkey: tokenAccountB,
-          isWritable: true,
-          isSigner: false,
-        },
-        {
-          pubkey: reserveB,
-          isWritable: true,
-          isSigner: false,
-        },
-        {
-          pubkey: poolAccount, // vault token account owner (allows program to transfer tokens from vault token accounts)
-          isWritable: true,
-          isSigner: false,
-        },
-      ])
-      .rpc({ skipPreflight: true, commitment: "confirmed" })
-
-    console.log("Your transaction signature", tx)
-
-    const updatedTokenAccountA = await getAccount(connection, tokenAccountA)
-    assert.equal(
-      Number(updatedTokenAccountA.amount),
-      expectedTokenAccountABalance
-    )
-
-    const updatedTokenAccountB = await getAccount(connection, tokenAccountB)
-    assert.equal(
-      Number(updatedTokenAccountB.amount),
-      expectedTokenAccountBBalance
-    )
-
-    const reserveAAccount = await getAccount(connection, reserveA)
-    assert.equal(Number(reserveAAccount.amount), expectedReserveInBalance)
-
-    const reserveBAccount = await getAccount(connection, reserveB)
-    assert.equal(Number(reserveBAccount.amount), expectedReserveOutBalance)
+    await performSwap(tokenAccountA, tokenAccountB, reserveA, reserveB, 100_000)
   })
 
   it("Swap mintB -> mintA", async () => {
-    const amountIn = 100_000
+    await performSwap(tokenAccountB, tokenAccountA, reserveB, reserveA, 100_000)
+  })
 
-    const initialTokenAccountB = await getAccount(connection, tokenAccountB)
-    const initialTokenAccountA = await getAccount(connection, tokenAccountA)
-    const initialReserveBAccount = await getAccount(connection, reserveB)
-    const initialReserveAAccount = await getAccount(connection, reserveA)
+  async function performSwap(
+    tokenIn,
+    tokenOut,
+    reserveIn,
+    reserveOut,
+    amountIn
+  ) {
+    // Get initial account balances
+    const initialTokenInAccount = await getAccount(connection, tokenIn)
+    const initialTokenOutAccount = await getAccount(connection, tokenOut)
+    const initialReserveInAccount = await getAccount(connection, reserveIn)
+    const initialReserveOutAccount = await getAccount(connection, reserveOut)
 
-    const reserveIn = Number(initialReserveBAccount.amount)
-    const reserveOut = Number(initialReserveAAccount.amount)
-    const tokenAccountBBalance = Number(initialTokenAccountB.amount)
-    const tokenAccountABalance = Number(initialTokenAccountA.amount)
+    // Convert account balances to numbers
+    const reserveInAmount = Number(initialReserveInAccount.amount)
+    const reserveOutAmount = Number(initialReserveOutAccount.amount)
+    const tokenInBalance = Number(initialTokenInAccount.amount)
+    const tokenOutBalance = Number(initialTokenOutAccount.amount)
 
-    const amountOut = calculateSwapOutput(amountIn, reserveIn, reserveOut)
+    // Calculate output amount
+    const amountOut = calculateSwapOutput(
+      amountIn,
+      reserveInAmount,
+      reserveOutAmount
+    )
 
-    const expectedTokenAccountBBalance = tokenAccountBBalance - amountIn
-    const expectedTokenAccountABalance = tokenAccountABalance + amountOut
-    const expectedReserveInBalance = reserveIn + amountIn
-    const expectedReserveOutBalance = reserveOut - amountOut
+    // Calculate expected balances after swap
+    const expectedTokenInBalance = tokenInBalance - amountIn
+    const expectedTokenOutBalance = tokenOutBalance + amountOut
+    const expectedReserveInBalance = reserveInAmount + amountIn
+    const expectedReserveOutBalance = reserveOutAmount - amountOut
 
+    // Perform the swap
     const tx = await program.methods
       .swap(
         new anchor.BN(amountIn), // amount of tokens to swap (from source token account)
-        tokenAccountB, // source token account (transfer tokens from this account)
-        tokenAccountA, // destination token account (receive tokens to this account)
+        new anchor.BN(amountOut), // minimum amount of tokens to receive (to destination token account)
+        tokenIn, // source token account (transfer tokens from this account)
+        tokenOut, // destination token account (receive tokens to this account)
         wallet.publicKey // token account owner
       )
       .accounts({ dataAccount: poolAccount })
@@ -413,22 +351,22 @@ describe("swap", () => {
           isSigner: true,
         },
         {
-          pubkey: tokenAccountA,
+          pubkey: tokenIn, // source token account
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: reserveA,
+          pubkey: reserveIn, // source reserve account
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: tokenAccountB,
+          pubkey: tokenOut, // destination token account
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: reserveB,
+          pubkey: reserveOut, // destination reserve account
           isWritable: true,
           isSigner: false,
         },
@@ -442,24 +380,24 @@ describe("swap", () => {
 
     console.log("Your transaction signature", tx)
 
-    const updatedTokenAccountB = await getAccount(connection, tokenAccountB)
+    // Get updated account balances
+    const updatedTokenInAccount = await getAccount(connection, tokenIn)
+    const updatedTokenOutAccount = await getAccount(connection, tokenOut)
+    const updatedReserveInAccount = await getAccount(connection, reserveIn)
+    const updatedReserveOutAccount = await getAccount(connection, reserveOut)
+
+    // Assert the updated balances are as expected
+    assert.equal(Number(updatedTokenInAccount.amount), expectedTokenInBalance)
+    assert.equal(Number(updatedTokenOutAccount.amount), expectedTokenOutBalance)
     assert.equal(
-      Number(updatedTokenAccountB.amount),
-      expectedTokenAccountBBalance
+      Number(updatedReserveInAccount.amount),
+      expectedReserveInBalance
     )
-
-    const updatedTokenAccountA = await getAccount(connection, tokenAccountA)
     assert.equal(
-      Number(updatedTokenAccountA.amount),
-      expectedTokenAccountABalance
+      Number(updatedReserveOutAccount.amount),
+      expectedReserveOutBalance
     )
-
-    const reserveBAccount = await getAccount(connection, reserveB)
-    assert.equal(Number(reserveBAccount.amount), expectedReserveInBalance)
-
-    const reserveAAccount = await getAccount(connection, reserveA)
-    assert.equal(Number(reserveAAccount.amount), expectedReserveOutBalance)
-  })
+  }
 
   it("Deposit Additional Liquidity", async () => {
     // Fetch the current reserves for mintA and mintB

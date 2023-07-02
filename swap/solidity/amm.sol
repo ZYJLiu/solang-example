@@ -298,7 +298,7 @@ contract amm {
     }
 
     // Swap tokens in the pool
-    function swap(uint64 amountIn, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
+    function swap(uint64 amountIn, uint64 amountOutMin, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
         address pool = getPool();
         address mintA = getMintA();
         address mintB = getMintB();
@@ -330,6 +330,19 @@ contract amm {
         uint64 reserveIn = reserveInTokenAccountData.balance;
         uint64 reserveOut = reserveOutTokenAccountData.balance;
 
+        // Calculate the amount of tokens the user will receive from the pool
+        // Reference: https://github.com/Uniswap/v2-periphery/blob/master/contracts/UniswapV2Router02.sol#L232C9-L232C109
+        uint64 amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
+        require(amountOut >= amountOutMin, 'INSUFFICIENT_OUTPUT_AMOUNT');
+
+        // Transfer tokens from the vault token account to the user's token account
+        // This is the token the user is receiving from the pool
+        transfer(
+            reserveOutTokenAccount, // source account
+            destinationTokenAccount, // destination account
+            amountOut // amount
+        );
+
         // Transfer tokens from the user's token account to the reserve token account
         // This is the token the user is providing to the pool
         SplToken.transfer(
@@ -339,16 +352,6 @@ contract amm {
             amountIn // amount
         );
 
-        // Calculate the amount of tokens the user will receive from the pool
-        uint64 amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
-
-        // Transfer tokens from the vault token account to the user's token account
-        // This is the token the user is receiving from the pool
-        transfer(
-            reserveOutTokenAccount, // source account
-            destinationTokenAccount, // destination account
-            amountOut // amount
-        );
 
         print("Reserve In: {:}".format(reserveIn));
         print("Reserve Out: {:}".format(reserveOut));
