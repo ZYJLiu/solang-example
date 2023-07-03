@@ -8,6 +8,7 @@ describe("counter", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
+  // Generate a new random keypair for the data account.
   const dataAccount = anchor.web3.Keypair.generate()
   const wallet = provider.wallet
 
@@ -16,9 +17,9 @@ describe("counter", () => {
   it("Is initialized!", async () => {
     // Initialize new Counter account
     const tx = await program.methods
-      .new(wallet.publicKey)
+      .new(wallet.publicKey) // wallet.publicKey is the payer for the new account
       .accounts({ dataAccount: dataAccount.publicKey })
-      .signers([dataAccount])
+      .signers([dataAccount]) // dataAccount keypair is a required signer because we're using it to create a new account
       .rpc()
     console.log("Your transaction signature", tx)
 
