@@ -13,17 +13,23 @@ contract amm {
     @seed(abi.encode(_mintA)) // mintA address (first token in the pool)
     @seed(abi.encode(_mintB)) // mintB address (second token in the pool)
     @bump(bump) // bump seed for pda address
-    constructor(address payer, address _pool, address _mintA, address _mintB, bytes bump) {
-        // Create and initialize reserve token accounts for the pool
-        // Reserve token accounts are used to store the tokens that are deposited into the pool
-        createReserveTokenAccount(payer, _mintA, _pool);
-        createReserveTokenAccount(payer, _mintB, _pool);
-        // Create and initialize liquidity provider mint account for the pool
-        // Liquidity provider mint account is used to mint LP tokens for liquidity providers
-        createLiquidityProviderMint(payer, _pool);
+    constructor(address payer, address _mintA, address _mintB, bytes1 bump) {
+        // Derive the PDA address for the pool
+        (address _pool, bytes1 _bump) = try_find_program_address([abi.encode(_mintA), abi.encode(_mintB)], type(amm).program_id);
+        require(bump == _bump, 'INVALID_BUMP');
+
         pool = _pool;
         mintA = _mintA;
         mintB = _mintB;
+
+        // Create and initialize reserve token accounts for the pool
+        // Reserve token accounts are used to store the tokens that are deposited into the pool
+        _createReserveTokenAccount(payer, _mintA);
+        _createReserveTokenAccount(payer, _mintB);
+
+        // Create and initialize liquidity provider mint account for the pool
+        // Liquidity provider mint account is used to mint LP tokens for liquidity providers
+        _createLiquidityProviderMint(payer);
     }
 
     // Get the pool address
@@ -42,12 +48,12 @@ contract amm {
     }
 
     // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
-    function createReserveTokenAccount(address payer, address mint, address pool) internal view {
+    function _createReserveTokenAccount(address payer, address mint) private view {
         // Derive the PDA address for the token account
         (address reserveTokenAccountAddress, bytes1 reserveTokenAccountAddressBump) = try_find_program_address([abi.encode(mint), abi.encode(pool)], type(amm).program_id);
 
         // Create new token account with the PDA as the address
-        createTokenAccount(payer, reserveTokenAccountAddress, mint, pool, reserveTokenAccountAddressBump);
+        _createTokenAccount(payer, reserveTokenAccountAddress, mint, reserveTokenAccountAddressBump);
 
         // Initialize the newly created token account
         SplToken.initialize_account(
@@ -58,7 +64,7 @@ contract amm {
     }
 
     // Invoke the system program to create an account, with space for a token account
-    function createTokenAccount(address payer, address tokenAccountAddress, address mint, address pool, bytes bump) internal view{
+    function _createTokenAccount(address payer, address tokenAccountAddress, address mint, bytes bump) private view{
         // Prepare accounts required by instruction
         AccountMeta[2] metas = [
             AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
@@ -78,12 +84,12 @@ contract amm {
     }
 
     // Instruction to create and initialize a mint account
-    function createLiquidityProviderMint(address payer, address pool) internal view {
+    function _createLiquidityProviderMint(address payer) private view {
         // Derive the PDA address for the mint account
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
 
         // Create new account for mint using PDA as the address
-        createMintAccount(payer, liquidityProviderMint, pool, liquidityProviderMintBump);
+        _createMintAccount(payer, liquidityProviderMint, liquidityProviderMintBump);
 
         // // Initialize mint account
         SplToken.initialize_mint(
@@ -95,7 +101,7 @@ contract amm {
     }
 
     // Invoke the system program to create an account, with space for mint account
-    function createMintAccount(address payer, address mintAddress, address pool, bytes bump) internal view{
+    function _createMintAccount(address payer, address mintAddress, bytes bump) private view{
         // Prepare accounts required by instruction
         AccountMeta[2] metas = [
             AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
@@ -116,14 +122,10 @@ contract amm {
 
     // Deposit tokens into the pool and receive LP tokens in exchange
     function addLiquidity(uint64 amountADesired, uint64 amountBDesired, uint64 amountAMin, uint64 amountBMin, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public view {
-        address pool = getPool();
-        address mintA = getMintA();
-        address mintB = getMintB();
-
         // Derive the PDA address for the reserve token accounts and liquidity provider mint account
-        (address reserveATokenAccount, bytes1 reserveATokenAccountBump) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
-        (address reserveBTokenAccount, bytes1 reserveBTokenAccountBump) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
+        (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
+        (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
+        (address liquidityProviderMint,) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
 
         // Get the token account data for the reserve token accounts
         SplToken.TokenAccountData reserveATokenAccountData = SplToken.get_token_account_data(reserveATokenAccount);
@@ -152,13 +154,13 @@ contract amm {
             liquidity = uint64(Math.sqrt(amountADesired * amountBDesired));
         } else {
             print("Deposit Additional Liquidity");
-            uint64 amountBOptimal = quote(amountADesired, reserveA, reserveB);
+            uint64 amountBOptimal = _quote(amountADesired, reserveA, reserveB);
             if (amountBOptimal <= amountBDesired) {
                 require(amountBOptimal >= amountBMin, 'INSUFFICIENT_B_AMOUNT');
                 amountA = amountADesired;
                 amountB = amountBOptimal;
             } else {
-                uint64 amountAOptimal = quote(amountBDesired, reserveB, reserveA);
+                uint64 amountAOptimal = _quote(amountBDesired, reserveB, reserveA);
                 assert(amountAOptimal <= amountADesired);
                 require(amountAOptimal >= amountAMin, 'INSUFFICIENT_A_AMOUNT');
                 amountA = amountAOptimal;
@@ -168,7 +170,7 @@ contract amm {
         }
 
         // Mint LP tokens to token account
-        mintTo(liquidityProviderTokenAccount, liquidity);
+        _mintTo(liquidityProviderTokenAccount, liquidity);
 
         // Transfer tokens from owner to vault
         SplToken.transfer(
@@ -202,13 +204,10 @@ contract amm {
     }
 
     // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
-    function mintTo(address account, uint64 amount) internal view {
-        address mintA = getMintA();
-        address mintB = getMintB();
-
-        // Derive the PDA address for the swap pool and liquidity provider mint account
-        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
+    function _mintTo(address account, uint64 amount) private view {
+        (address liquidityProviderMint,) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
+        (address _pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
+        require(_pool == pool, 'INVALID_POOL');
 
         // Prepare accounts required by instruction
         AccountMeta[3] metas = [
@@ -228,13 +227,10 @@ contract amm {
 
     // Burn LP tokens to withdraw tokens from the pool
     function removeLiquidity(uint64 amountBurn, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public view {
-        address pool = getPool();
-        address mintA = getMintA();
-        address mintB = getMintB();
-
-        (address reserveATokenAccount, bytes1 reserveATokenAccountBump) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
-        (address reserveBTokenAccount, bytes1 reserveBTokenAccountBump) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
-        (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
+        // Derive the reserve token accounts and LP mint
+        (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
+        (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
+        (address liquidityProviderMint,) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
 
         SplToken.TokenAccountData reserveATokenAccountData = SplToken.get_token_account_data(reserveATokenAccount);
         SplToken.TokenAccountData reserveBTokenAccountData = SplToken.get_token_account_data(reserveBTokenAccount);
@@ -261,14 +257,14 @@ contract amm {
         );
 
         // Withdraw token from vault to liquidity provider
-        transfer(
+        _transfer(
             reserveATokenAccount, // source account
             tokenAccountA, // destination account
             amountA // amount
         );
 
         // Withdraw token from vault to liquidity provider
-        transfer(
+        _transfer(
             reserveBTokenAccount, // source account
             tokenAccountB, // destination account
             amountB // amount
@@ -276,10 +272,9 @@ contract amm {
     }
 
     // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
-    function transfer(address from, address to, uint64 amount) internal view {
-        address mintA = getMintA();
-        address mintB = getMintB();
-        (address pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
+    function _transfer(address from, address to, uint64 amount) private view {
+        (address _pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
+        require(_pool == pool, 'INVALID_POOL');
 
         // Prepare accounts required by instruction
         AccountMeta[3] metas = [
@@ -299,13 +294,9 @@ contract amm {
 
     // Swap tokens in the pool
     function swap(uint64 amountIn, uint64 amountOutMin, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
-        address pool = getPool();
-        address mintA = getMintA();
-        address mintB = getMintB();
-
         // Derive the PDA address for reserve token accounts
-        (address reserveATokenAccount, bytes1 reserveATokenAccountBump) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
-        (address reserveBTokenAccount, bytes1 reserveBTokenAccountBump) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
+        (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
+        (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
 
         address reserveInTokenAccount; // token the user is providing to the pool (depositing to)
         address reserveOutTokenAccount; // token the user is receiving from the pool (withdrawing from)
@@ -332,12 +323,12 @@ contract amm {
 
         // Calculate the amount of tokens the user will receive from the pool
         // Reference: https://github.com/Uniswap/v2-periphery/blob/master/contracts/UniswapV2Router02.sol#L232C9-L232C109
-        uint64 amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
+        uint64 amountOut = _getAmountOut(amountIn, reserveIn, reserveOut);
         require(amountOut >= amountOutMin, 'INSUFFICIENT_OUTPUT_AMOUNT');
 
         // Transfer tokens from the vault token account to the user's token account
         // This is the token the user is receiving from the pool
-        transfer(
+        _transfer(
             reserveOutTokenAccount, // source account
             destinationTokenAccount, // destination account
             amountOut // amount
@@ -362,7 +353,7 @@ contract amm {
 
     // Given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
     // Reference: https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol#L35-L40
-    function quote(uint64 amountA, uint64 reserveA, uint64 reserveB) internal pure returns (uint64 amountB) {
+    function _quote(uint64 amountA, uint64 reserveA, uint64 reserveB) internal pure returns (uint64 amountB) {
         require(amountA > 0, 'INSUFFICIENT_AMOUNT');
         require(reserveA > 0 && reserveB > 0, 'INSUFFICIENT_LIQUIDITY');
         amountB = (amountA * reserveB) / reserveA;
@@ -370,7 +361,7 @@ contract amm {
 
     // Calculate the amount of tokens the user will receive from the pool
     // Reference: https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol#L43
-    function getAmountOut(uint64 amountIn, uint64 reserveIn, uint64 reserveOut) internal pure returns (uint64 amountOut) {
+    function _getAmountOut(uint64 amountIn, uint64 reserveIn, uint64 reserveOut) internal pure returns (uint64 amountOut) {
         require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint64 amountInWithFee = amountIn * 997; // 0.3% fee

@@ -104,10 +104,9 @@ describe("swap", () => {
     const tx = await program.methods
       .new(
         wallet.publicKey, // payer
-        poolAccount, // pool account (data account) to create
         mintA.publicKey, // mintA
         mintB.publicKey, // mintB
-        Buffer.from([poolAccountBump])
+        [poolAccountBump]
       )
       .accounts({ dataAccount: poolAccount })
       .remainingAccounts([
