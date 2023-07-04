@@ -6,7 +6,6 @@ contract transfer_sol {
 
     @payer(payer) // payer to create new data account
     constructor(address payer) {
-        // Creating a new data account is required by Solang even though it is not used in other instructions
         // No data is stored in the account in this example
     }
 
@@ -14,5 +13,18 @@ contract transfer_sol {
     function transferSolWithCpi(address from, address to, uint64 lamports) public view {
         // CPI to transfer SOL using "system_instruction" library
         SystemInstruction.transfer(from, to, lamports);
+    }
+
+    // Transfer SOL from program owned account to another address by directly modifying the account data lamports
+    // This approach only works for accounts owned by the program itself (ex. the dataAccount created in the constructor)
+    function transferSolWithProgram(uint64 lamports) public {
+        AccountInfo from = tx.accounts[0]; // first account must be an account owned by the program
+        AccountInfo to = tx.accounts[1]; // second account must be the intended recipient
+
+        print("From: {:}".format(from.key));
+        print("To: {:}".format(to.key));
+
+        from.lamports -= lamports;
+        to.lamports += lamports;
     }
 }
