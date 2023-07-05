@@ -10,51 +10,38 @@ contract checking_accounts {
     function checkAccounts(address accountToChange, address accountToCreate) public view {
         print("Number of Accounts Provided: {:}".format(tx.accounts.length));
 
-        // Checks Accounts
-        programOwnerCheck(accountToChange);
-        notInitializedCheck(accountToCreate);
-        signerCheck(accountToCreate);
+        // Find the accounts we are looking for and perform checks on them
+        for (uint64 i = 0; i < tx.accounts.length; i++) {
+            if (tx.accounts[i].key == accountToChange) {
+                print("Found Account To Change");
+                programOwnerCheck(tx.accounts[i]);
+            }
+            if (tx.accounts[i].key == accountToCreate) {
+                print("Found Account To Create");
+                notInitializedCheck(tx.accounts[i]);
+                signerCheck(tx.accounts[i]);
+            }
+        }
 
         // (Create account...) (unimplemented)
         // (Change account...) (unimplemented)
     }
 
-    function programOwnerCheck(address account) internal view {
+    function programOwnerCheck(AccountInfo account) internal pure {
         print("Progam Owner Check");
-        for (uint64 i = 0; i < tx.accounts.length; i++) {
-            AccountInfo ai = tx.accounts[i];
-
-            if (ai.key == account) {
-                print("Account Found: {:}".format(ai.key));
-                // This program should be the owner of the account
-                require(ai.owner == type(checking_accounts).program_id, "Account to change does not have the correct program id.");
-            }
-        }
+        // The owner of this account should be this program
+        require(account.owner == type(checking_accounts).program_id, "Account to change does not have the correct program id.");
     }
 
-    function notInitializedCheck(address account) internal view {
+    function notInitializedCheck(AccountInfo account) internal pure {
         print("Check Account Not Initialized");
-        for (uint64 i = 0; i < tx.accounts.length; i++) {
-            AccountInfo ai = tx.accounts[i];
-
-            if (ai.key == account) {
-                print("Account Found: {:}".format(ai.key));
-                // This account should not be initialized (has no lamports)
-                require(ai.lamports == 0, "The program expected the account to create to not yet be initialized.");
-            }
-        }
+        // This account should not be initialized (has no lamports)
+        require(account.lamports == 0, "The program expected the account to create to not yet be initialized.");
     }
 
-    function signerCheck(address account) internal view {
+    function signerCheck(AccountInfo account) internal pure {
         print("Check Account Signed Transaction");
-        for (uint64 i = 0; i < tx.accounts.length; i++) {
-            AccountInfo ai = tx.accounts[i];
-
-            if (ai.key == account) {
-                print("Account Found: {:}".format(ai.key));
-                // This account should be a signer on the transaction
-                require(ai.is_signer, "Account required to be a signer");
-            }
-        }
+        // This account should be a signer on the transaction
+        require(account.is_signer, "Account required to be a signer");
     }
 }
