@@ -1,6 +1,5 @@
 
 import "./spl_token.sol";
-import "./system_instruction.sol";
 import "./mpl_metadata.sol";
 
 @program_id("8eZPhSaXfHqbcrfskVThtCG68kq8MfVHqmtm6wYf4TLb")
@@ -22,19 +21,11 @@ contract create_token {
         string symbol, // symbol for the metadata account
         string uri // uri for the metadata account
     ) public view {
-        // Invoke System Program to create a new account for the mint account
-        // Program owner is set to the Token program
-        SystemInstruction.create_account(
-            payer,   // lamports sent from this account (payer)
-            mint,    // lamports sent to this account (account to be created)
-            1461600, // lamport amount (minimum lamports for mint account)
-            82,      // space required for the account (mint account)
-            SplToken.tokenProgramId // new program owner
-        );
-
+        // Invoke System Program to create a new account for the mint account and,
         // Invoke Token Program to initialize the mint account
         // Set mint authority, freeze authority, and decimals for the mint account
-        SplToken.initialize_mint(
+        SplToken.create_mint(
+            payer,            // payer account
             mint,            // mint account
             mintAuthority,   // mint authority
             freezeAuthority, // freeze authority

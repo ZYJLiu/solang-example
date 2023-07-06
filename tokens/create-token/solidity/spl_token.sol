@@ -1,4 +1,5 @@
 import 'solana';
+import 'system_instruction.sol';
 
 library SplToken {
 	address constant tokenProgramId = address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -74,6 +75,39 @@ library SplToken {
 	/// @param decimals the decimals of the mint
 	function initialize_mint(address mint, address mintAuthority, address freezeAuthority, uint8 decimals) internal view {
     	InitializeMintInstruction instr = InitializeMintInstruction({
+            instruction: 20,
+            decimals: decimals,
+            mintAuthority: mintAuthority,
+            freezeAuthorityOption: 1,
+            freezeAuthority: freezeAuthority
+        });
+
+		AccountMeta[1] metas = [
+			AccountMeta({pubkey: mint, is_writable: true, is_signer: false})
+		];
+
+		tokenProgramId.call{accounts: metas}(instr);
+	}
+
+	/// Create and initialize a new mint account in one instruction
+	///
+	/// @param payer the public key of the account paying to create the mint account
+	/// @param mint the public key of the mint account to initialize
+	/// @param mintAuthority the public key of the mint authority
+	/// @param freezeAuthority the public key of the freeze authority
+	/// @param decimals the decimals of the mint
+	function create_mint(address payer, address mint, address mintAuthority, address freezeAuthority, uint8 decimals) internal view {
+		// Invoke System Program to create a new account for the mint account
+        // Program owner is set to the Token program
+        SystemInstruction.create_account(
+            payer,   // lamports sent from this account (payer)
+            mint,    // lamports sent to this account (account to be created)
+            1461600, // lamport amount (minimum lamports for mint account)
+            82,      // space required for the account (mint account)
+            SplToken.tokenProgramId // new program owner
+        );
+
+		InitializeMintInstruction instr = InitializeMintInstruction({
             instruction: 20,
             decimals: decimals,
             mintAuthority: mintAuthority,
