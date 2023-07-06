@@ -59,12 +59,6 @@ contract transfer_tokens {
             payer, // mint authority
             amount // amount
         );
-
-        // Remove mint authority from mint account
-        SplToken.remove_mint_authority(
-            mint, // mint
-            payer // mint authority
-        );
     }
 
     // Transfer tokens from one token account to another via Cross Program Invocation to Token Program

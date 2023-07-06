@@ -10,7 +10,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token"
 
-describe("nft-minter", () => {
+describe("Transfer Tokens", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
@@ -43,7 +43,7 @@ describe("nft-minter", () => {
     console.log("Your transaction signature", tx)
   })
 
-  it("Create an NFT!", async () => {
+  it("Create an SPL Token!", async () => {
     const metaplex = Metaplex.make(connection)
     const metadataAddress = await metaplex
       .nfts()
@@ -85,7 +85,7 @@ describe("nft-minter", () => {
     console.log("Your transaction signature", tx)
   })
 
-  it("Mint the NFT to your wallet!", async () => {
+  it("Mint some tokens to your wallet!", async () => {
     const tx = await program.methods
       .mintTo(
         wallet.publicKey, // payer
@@ -119,7 +119,7 @@ describe("nft-minter", () => {
     console.log("Your transaction signature", tx)
   })
 
-  it("Transfer Tokens from PDA Token Account", async () => {
+  it("Transfer some tokens to another wallet!", async () => {
     const receipient = anchor.web3.Keypair.generate()
     const receipientTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
