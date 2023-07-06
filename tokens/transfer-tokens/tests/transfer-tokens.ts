@@ -1,11 +1,12 @@
 import * as anchor from "@coral-xyz/anchor"
 import { Program } from "@coral-xyz/anchor"
-import { NftMinter } from "../target/types/nft_minter"
+import { TransferTokens } from "../target/types/transfer_tokens"
 import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js"
 import { Metaplex } from "@metaplex-foundation/js"
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
+  getOrCreateAssociatedTokenAccount,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token"
 
@@ -16,15 +17,21 @@ describe("nft-minter", () => {
 
   const dataAccount = anchor.web3.Keypair.generate()
   const mintKeypair = anchor.web3.Keypair.generate()
-  const wallet = provider.wallet
+  const wallet = provider.wallet as anchor.Wallet
   const connection = provider.connection
 
-  const program = anchor.workspace.NftMinter as Program<NftMinter>
+  const program = anchor.workspace.TransferTokens as Program<TransferTokens>
 
   const nftTitle = "Homer NFT"
   const nftSymbol = "HOMR"
   const nftUri =
     "https://raw.githubusercontent.com/solana-developers/program-examples/new-examples/tokens/tokens/.assets/nft.json"
+
+  // Derive wallet's associated token account address for mint
+  const tokenAccount = getAssociatedTokenAddressSync(
+    mintKeypair.publicKey,
+    wallet.publicKey
+  )
 
   it("Is initialized!", async () => {
     // Add your test here.
@@ -51,7 +58,7 @@ describe("nft-minter", () => {
         wallet.publicKey, // mint authority
         wallet.publicKey, // freeze authority
         metadataAddress, // metadata address
-        0, // 0 decimals for NFT
+        9, // 0 decimals for NFT
         nftTitle, // NFT name
         nftSymbol, // NFT symbol
         nftUri // NFT URI
@@ -79,18 +86,13 @@ describe("nft-minter", () => {
   })
 
   it("Mint the NFT to your wallet!", async () => {
-    // Derive wallet's associated token account address for mint
-    const tokenAccount = getAssociatedTokenAddressSync(
-      mintKeypair.publicKey,
-      wallet.publicKey
-    )
-
     const tx = await program.methods
       .mintTo(
         wallet.publicKey, // payer
         tokenAccount, // associated token account address
         mintKeypair.publicKey, // mint
-        wallet.publicKey // owner of token account
+        wallet.publicKey, // owner of token account
+        new anchor.BN(150) // amount to mint
       )
       .accounts({ dataAccount: dataAccount.publicKey })
       .remainingAccounts([
@@ -114,6 +116,48 @@ describe("nft-minter", () => {
         },
       ])
       .rpc({ skipPreflight: true })
+    console.log("Your transaction signature", tx)
+  })
+
+  it("Transfer Tokens from PDA Token Account", async () => {
+    const receipient = anchor.web3.Keypair.generate()
+    const receipientTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      mintKeypair.publicKey, // Mint account
+      receipient.publicKey // Owner account
+    )
+
+    const tx = await program.methods
+      .transferTokens(
+        tokenAccount,
+        receipientTokenAccount.address,
+        new anchor.BN(150)
+      )
+      .accounts({ dataAccount: dataAccount.publicKey })
+      .remainingAccounts([
+        {
+          pubkey: wallet.publicKey,
+          isWritable: true,
+          isSigner: true,
+        },
+        {
+          pubkey: mintKeypair.publicKey,
+          isWritable: false,
+          isSigner: false,
+        },
+        {
+          pubkey: tokenAccount,
+          isWritable: true,
+          isSigner: false,
+        },
+        {
+          pubkey: receipientTokenAccount.address,
+          isWritable: true,
+          isSigner: false,
+        },
+      ])
+      .rpc()
     console.log("Your transaction signature", tx)
   })
 })
