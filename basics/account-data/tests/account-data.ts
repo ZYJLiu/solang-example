@@ -7,13 +7,14 @@ describe("account-data", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
+  // Generate a new random keypair for the data account.
   const dataAccount = anchor.web3.Keypair.generate()
   const wallet = provider.wallet
-
   const program = anchor.workspace.AccountData as Program<AccountData>
 
   // Create the new account
-  // TODO: Figure out how to calculate the initial size of the account required for Solang programs
+  // Using 10240 bytes of space, because its unclear how to correctly calculate the minimum space needed for the account
+  // Space calculation is different from regular Native/Anchor Solana programs
   it("Is initialized!", async () => {
     const tx = await program.methods
       .new(
@@ -40,6 +41,8 @@ describe("account-data", () => {
   })
 
   // Get the account data size
+  // Testing how much space is used to store the account data
+  // However, minimum space required is greater than this
   it("Get AddressInfo Size", async () => {
     const size = await program.methods
       .getAddressInfoSize()

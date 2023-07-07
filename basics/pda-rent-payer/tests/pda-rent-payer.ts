@@ -8,12 +8,12 @@ describe("pda-rent-payer", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
-  const dataAccount = anchor.web3.Keypair.generate()
   const wallet = provider.wallet
   const connection = provider.connection
 
   const program = anchor.workspace.PdaRentPayer as Program<PdaRentPayer>
 
+  // Amount of additional lamports to fund the dataAccount with.
   const fundLamports = 1 * anchor.web3.LAMPORTS_PER_SOL
 
   // Derive the PDA that will be used to initialize the dataAccount.
@@ -37,14 +37,17 @@ describe("pda-rent-payer", () => {
   it("Create a new account using the Rent Vault", async () => {
     const newAccount = anchor.web3.Keypair.generate()
     const space = 100 // number of bytes
+
+    // Get the minimum balance for the account to be rent exempt.
     const lamports = await connection.getMinimumBalanceForRentExemption(space)
 
+    // Invoke the createNewAccount instruction on our program
     const tx = await program.methods
       .createNewAccount(new anchor.BN(lamports))
       .accounts({ dataAccount: dataAccountPDA })
       .remainingAccounts([
         {
-          pubkey: newAccount.publicKey,
+          pubkey: newAccount.publicKey, // account to create by directly transferring lamports
           isWritable: true,
           isSigner: false,
         },

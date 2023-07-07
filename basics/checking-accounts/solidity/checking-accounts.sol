@@ -4,7 +4,8 @@ import "solana";
 @program_id("F1ipperKF9EfD821ZbbYjS319LXYiBmjhzkkf5a26rC")
 contract checking_accounts {
 
-    @payer(payer)
+    // The dataAccount is unused in this example, but is a required account when using Solang
+    @payer(payer) // "payer" is the account that pays to create the dataAccount
     constructor(address payer) {}
 
     function checkAccounts(address accountToChange, address accountToCreate) public view {

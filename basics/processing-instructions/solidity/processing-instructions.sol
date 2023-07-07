@@ -6,6 +6,7 @@ contract processing_instructions {
     constructor(address payer) {}
 
     function goToPark(string name, uint32 height) public pure {
+        // Print messages to the program logs
         print("Welcome to the park, {:}".format(name));
 
         if (height >5) {

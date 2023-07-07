@@ -5,8 +5,7 @@ contract counter {
     uint64 private count;
 
     // The constructor is used to create a new counter account
-    // The "payer" pays for the counter account creation
-    @payer(payer)
+    @payer(payer)  // The "payer" pays for the counter account creation
     constructor(address payer) {
         // Initialize the count to zero
         count = 0;

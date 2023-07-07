@@ -13,14 +13,14 @@ contract account_data {
         string city;
     }
 
-    @payer(payer) // "payer" is the account that pays for creating the account
-    @space(space) // "space" required by account (maximum 10240 bytes, maximum space that can be reallocate when creating account in program via a CPI)
+    @payer(payer) // "payer" is the account that pays to create the dataAccount
+    @space(space) // "space" allocated to the account (maximum 10240 bytes, maximum space that can be reallocate when creating account in program via a CPI)
     constructor(address payer, uint16 space, string _name, uint8 _houseNumber, string _street, string _city) {
-        // The AddressInfo instance is initialized with the arguments passed to the constructor
+        // The AddressInfo instance is initialized with the data passed to the constructor
         addressInfo = AddressInfo(_name, _houseNumber, _street, _city);
     }
 
-    // A function to get the stored addressInfo from the account
+    // A function to get the addressInfo data stored on the account
     function get() public view returns (AddressInfo) {
         return addressInfo;
     }

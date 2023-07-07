@@ -12,8 +12,12 @@ describe("checking-accounts", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
+  // Generate a new random keypair for the data account.
   const dataAccount = anchor.web3.Keypair.generate()
+
+  // Generate a new keypair to represent the account we will change.
   const accountToChange = anchor.web3.Keypair.generate()
+  // Generate a new keypair to represent the account we will create.
   const accountToCreate = anchor.web3.Keypair.generate()
   const wallet = provider.wallet as anchor.Wallet
   const connection = provider.connection
@@ -21,7 +25,7 @@ describe("checking-accounts", () => {
   const program = anchor.workspace.CheckingAccounts as Program<CheckingAccounts>
 
   it("Is initialized!", async () => {
-    // Add your test here.
+    // Create the new dataAccount, this is an account required by Solang even though we don't use it
     const tx = await program.methods
       .new(wallet.publicKey)
       .accounts({ dataAccount: dataAccount.publicKey })
@@ -31,6 +35,7 @@ describe("checking-accounts", () => {
   })
 
   it("Create an account owned by our program", async () => {
+    // Create the new account owned by our program by directly calling the system program
     let ix = SystemProgram.createAccount({
       fromPubkey: wallet.publicKey,
       newAccountPubkey: accountToChange.publicKey,
@@ -46,6 +51,7 @@ describe("checking-accounts", () => {
   })
 
   it("Check Accounts", async () => {
+    // Invoke the checkAccounts instruction on our program, passing in the account we want to "check"
     const tx = await program.methods
       .checkAccounts(accountToChange.publicKey, accountToCreate.publicKey)
       .accounts({ dataAccount: dataAccount.publicKey })
