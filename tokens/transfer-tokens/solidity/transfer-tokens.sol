@@ -43,16 +43,14 @@ contract transfer_tokens {
         );
     }
 
-    function mintTo(address payer, address tokenAccount, address mint, address owner, uint64 amount) public view {
-        // Create an associated token account for the owner to receive the minted token
-        SplToken.create_associated_token_account(
-            payer, // payer account
-            tokenAccount, // associated token account address
-            mint, // mint account
-            owner // owner account
-        );
-
-        // Mint 1 token to the associated token account
+    function mintTo(
+        address payer, // payer account
+        address tokenAccount, // token account to create and receive the minted token
+        address mint, // mint account
+        address owner, // token account owner
+        uint64 amount // amount to mint
+    ) public view {
+        // Mint token to the token account
         SplToken.mint_to(
             mint, // mint account
             tokenAccount, // token account
@@ -62,7 +60,11 @@ contract transfer_tokens {
     }
 
     // Transfer tokens from one token account to another via Cross Program Invocation to Token Program
-    function transferTokens(address from, address to, uint64 amount) public view {
+    function transferTokens(
+        address from, // token account to transfer from
+        address to, // token account to transfer to
+        uint64 amount // amount to transfer
+    ) public view {
         SplToken.TokenAccountData from_data = SplToken.get_token_account_data(from);
         SplToken.transfer(from, to, from_data.owner, amount);
     }

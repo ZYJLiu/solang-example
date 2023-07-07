@@ -59,6 +59,12 @@ library SplToken {
 		tokenProgramId.call{accounts: metas}(instr);
 	}
 
+	/// Initialize a new associated token account.
+	///
+	/// @param payer the public key of the payer to create the associated token account
+	/// @param tokenAccount the public key of the token account to initialize
+	/// @param mint the public key of the mint account for this new token account
+	/// @param owner the public key of the owner of this new token account
     function create_associated_token_account(address payer, address tokenAccount, address mint, address owner) internal view {
         AccountMeta[6] metas = [
 			AccountMeta({pubkey: payer, is_writable: true, is_signer: true}),

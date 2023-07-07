@@ -43,15 +43,7 @@ contract spl_token_minter {
     }
 
     function mintTo(address payer, address tokenAccount, address mint, address owner, uint64 amount) public view {
-        // Create an associated token account for the owner to receive the minted token
-        SplToken.create_associated_token_account(
-            payer, // payer account
-            tokenAccount, // associated token account address
-            mint, // mint account
-            owner // owner account
-        );
-
-        // Mint 1 token to the associated token account
+        // Mint tokens to the token account
         SplToken.mint_to(
             mint, // mint account
             tokenAccount, // token account

@@ -14,20 +14,24 @@ describe("nft-minter", () => {
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
+  // Generate a new keypair for the data account for the program
   const dataAccount = anchor.web3.Keypair.generate()
+
+  // Generate a mint keypair
   const mintKeypair = anchor.web3.Keypair.generate()
   const wallet = provider.wallet
   const connection = provider.connection
 
   const program = anchor.workspace.NftMinter as Program<NftMinter>
 
+  // Metadata for the NFT
   const nftTitle = "Homer NFT"
   const nftSymbol = "HOMR"
   const nftUri =
     "https://raw.githubusercontent.com/solana-developers/program-examples/new-examples/tokens/tokens/.assets/nft.json"
 
   it("Is initialized!", async () => {
-    // Add your test here.
+    // Initialize data account for the program, which is required by Solang
     const tx = await program.methods
       .new(wallet.publicKey)
       .accounts({ dataAccount: dataAccount.publicKey })
@@ -37,13 +41,13 @@ describe("nft-minter", () => {
   })
 
   it("Create an NFT!", async () => {
+    // Get the metadata address for the mint
     const metaplex = Metaplex.make(connection)
     const metadataAddress = await metaplex
       .nfts()
       .pdas()
       .metadata({ mint: mintKeypair.publicKey })
 
-    // Add your test here.
     const tx = await program.methods
       .createTokenMint(
         wallet.publicKey, // payer
@@ -65,7 +69,7 @@ describe("nft-minter", () => {
         },
         { pubkey: mintKeypair.publicKey, isWritable: true, isSigner: true },
         {
-          pubkey: new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
+          pubkey: new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"), // Metadata program id
           isWritable: false,
           isSigner: false,
         },

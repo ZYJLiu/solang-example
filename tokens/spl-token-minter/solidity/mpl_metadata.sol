@@ -4,7 +4,7 @@ import 'solana';
 // Solidity does not support Rust Option<> type, so we need to handle it manually
 // Requires creating a struct for each combination of Option<> types
 // If bool for Option<> type is false, comment out the corresponding struct field otherwise instruction fails with "invalid account data"
-// TODO: figue out better way to handle Option<> types
+// TODO: figure out better way to handle Option<> types
 library MplMetadata {
 	address constant metadataProgramId = address"metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
 	address constant systemAddress = address"11111111111111111111111111111111";
@@ -78,6 +78,7 @@ library MplMetadata {
 		string symbol,
 		string uri
 	) public view {
+        // // Example of how to add a Creator[] array to the DataV2 struct
 		// Creator[] memory creators = new Creator[](1);
         // creators[0] = Creator({
         //     creatorAddress: payer,

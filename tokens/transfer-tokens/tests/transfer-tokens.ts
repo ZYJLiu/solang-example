@@ -27,12 +27,6 @@ describe("Transfer Tokens", () => {
   const nftUri =
     "https://raw.githubusercontent.com/solana-developers/program-examples/new-examples/tokens/tokens/.assets/nft.json"
 
-  // Derive wallet's associated token account address for mint
-  const tokenAccount = getAssociatedTokenAddressSync(
-    mintKeypair.publicKey,
-    wallet.publicKey
-  )
-
   it("Is initialized!", async () => {
     // Add your test here.
     const tx = await program.methods
@@ -86,10 +80,18 @@ describe("Transfer Tokens", () => {
   })
 
   it("Mint some tokens to your wallet!", async () => {
+    // Wallet's associated token account address for mint
+    const tokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet.payer, // payer
+      mintKeypair.publicKey, // mint
+      wallet.publicKey // owner
+    )
+
     const tx = await program.methods
       .mintTo(
         wallet.publicKey, // payer
-        tokenAccount, // associated token account address
+        tokenAccount.address, // associated token account address
         mintKeypair.publicKey, // mint
         wallet.publicKey, // owner of token account
         new anchor.BN(150) // amount to mint
@@ -101,7 +103,7 @@ describe("Transfer Tokens", () => {
           isWritable: true,
           isSigner: true,
         },
-        { pubkey: tokenAccount, isWritable: true, isSigner: false },
+        { pubkey: tokenAccount.address, isWritable: true, isSigner: false },
         { pubkey: mintKeypair.publicKey, isWritable: true, isSigner: false },
         {
           pubkey: SystemProgram.programId,
@@ -120,17 +122,25 @@ describe("Transfer Tokens", () => {
   })
 
   it("Transfer some tokens to another wallet!", async () => {
+    // Wallet's associated token account address for mint
+    const tokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet.payer, // payer
+      mintKeypair.publicKey, // mint
+      wallet.publicKey // owner
+    )
+
     const receipient = anchor.web3.Keypair.generate()
     const receipientTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
-      wallet.payer,
-      mintKeypair.publicKey, // Mint account
-      receipient.publicKey // Owner account
+      wallet.payer, // payer
+      mintKeypair.publicKey, // mint account
+      receipient.publicKey // owner account
     )
 
     const tx = await program.methods
       .transferTokens(
-        tokenAccount,
+        tokenAccount.address,
         receipientTokenAccount.address,
         new anchor.BN(150)
       )
@@ -147,7 +157,7 @@ describe("Transfer Tokens", () => {
           isSigner: false,
         },
         {
-          pubkey: tokenAccount,
+          pubkey: tokenAccount.address,
           isWritable: true,
           isSigner: false,
         },

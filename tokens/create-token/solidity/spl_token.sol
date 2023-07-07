@@ -3,6 +3,7 @@ import 'system_instruction.sol';
 
 library SplToken {
 	address constant tokenProgramId = address"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+	address constant associatedTokenProgramId = address"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 	address constant rentAddress = address"SysvarRent111111111111111111111111111111111";
 	enum TokenInstruction {
 		InitializeMint, // 0
@@ -57,6 +58,26 @@ library SplToken {
 
 		tokenProgramId.call{accounts: metas}(instr);
 	}
+
+	/// Initialize a new associated token account.
+	///
+	/// @param payer the public key of the payer to create the associated token account
+	/// @param tokenAccount the public key of the token account to initialize
+	/// @param mint the public key of the mint account for this new token account
+	/// @param owner the public key of the owner of this new token account
+    function create_associated_token_account(address payer, address tokenAccount, address mint, address owner) internal view {
+        AccountMeta[6] metas = [
+			AccountMeta({pubkey: payer, is_writable: true, is_signer: true}),
+			AccountMeta({pubkey: tokenAccount, is_writable: true, is_signer: false}),
+			AccountMeta({pubkey: owner, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: mint, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: SystemInstruction.systemAddress, is_writable: false, is_signer: false}),
+			AccountMeta({pubkey: SplToken.tokenProgramId, is_writable: false, is_signer: false})
+		];
+
+        bytes instructionData = abi.encode((0));
+		associatedTokenProgramId.call{accounts: metas}(instructionData);
+    }
 
 	// Initialize mint instruction data
 	struct InitializeMintInstruction {

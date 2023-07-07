@@ -4,11 +4,11 @@ import "solana";
 
 @program_id("J2eUKE878XKXJZaP7vXwxgWnWnNQMqHSkMPoRFQwa86b")
 contract pda_mint_authority {
-    bytes1 bump;
+    bytes1 bump; // stores the bump for the pda address
 
     @payer(payer)
-    @seed("mint_authority")
-    @bump(_bump)
+    @seed("mint_authority") // hard-coded seed
+    @bump(_bump) // bump for the pda address
     constructor(address payer, bytes1 _bump) {
         // Independently derive the PDA address from the seeds, bump, and programId
         (address pda, bytes1 pdaBump) = try_find_program_address(["mint_authority"], type(pda_mint_authority).program_id);
@@ -57,19 +57,19 @@ contract pda_mint_authority {
 
     // Create metadata account, must reimplement manually to sign with PDA, which is the mint authority
     function _createMetadataAccount(
-        address metadata,
-		address mint,
-		address mintAuthority,
-		address payer,
-		address updateAuthority,
-		string name,
-		string symbol,
-		string uri
+        address metadata, // metadata account address
+		address mint, // mint account address
+		address mintAuthority, // mint authority
+		address payer, // payer
+		address updateAuthority, // update authority for the metadata account
+		string name, // token name
+		string symbol, // token symbol
+		string uri // token uri
     ) private view {
         // // Independently derive the PDA address from the seeds, bump, and programId
         (address pda, bytes1 _bump) = try_find_program_address(["mint_authority"], type(pda_mint_authority).program_id);
 
-        // require(address(this) == pda, 'INVALID_PDA');
+        require(address(this) == pda, 'INVALID_PDA');
 
         DataV2 data = DataV2({
             name: name,
