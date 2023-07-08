@@ -21,7 +21,6 @@ import {
 import { uris } from "../utils/uri"
 
 describe("compressed-nft", () => {
-  // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
 
@@ -30,14 +29,18 @@ describe("compressed-nft", () => {
 
   const program = anchor.workspace.CompressedNft as Program<CompressedNft>
 
+  // Generate a new keypair for the merkle tree.
   const treeKeypair = Keypair.generate()
+
+  // Derive the PDA that will be the tree authority.
+  // This is required by the bubblegum program.
   const [treeAuthority] = PublicKey.findProgramAddressSync(
     [treeKeypair.publicKey.toBuffer()],
     BUBBLEGUM_PROGRAM_ID
   )
 
   // Derive the PDA that will be used to initialize the dataAccount.
-  // Required even though we're not using it.
+  // Required by Solang even though we're not using it.
   const [dataAccount, bump] = PublicKey.findProgramAddressSync(
     [Buffer.from("seed")],
     program.programId
@@ -45,13 +48,18 @@ describe("compressed-nft", () => {
 
   // Create a merkle tree account.
   before(async () => {
+    // Maximum depth and buffer size for the merkle tree.
+    // 2^maxDepth determines the maximum number of leaves that can be stored in the tree.
+    // maxBufferSize determines maximum concurrent updates that can be made within one slot.
     const maxDepthSizePair: ValidDepthSizePair = {
       maxDepth: 14,
       maxBufferSize: 64,
     }
 
+    // Depth of the canopy (how much of the tree is stored on-chain)
     const canopyDepth = 0
 
+    // Instruction to create an account with enough space to store the merkle tree.
     const allocTreeIx = await createAllocTreeIx(
       connection,
       treeKeypair.publicKey,
@@ -60,6 +68,7 @@ describe("compressed-nft", () => {
       canopyDepth
     )
 
+    // Instruction to initialize the merkle tree account with the bubblegum program.
     const createTreeIx = createCreateTreeInstruction(
       {
         treeAuthority,
@@ -114,18 +123,12 @@ describe("compressed-nft", () => {
   })
 
   it("Mint Compressed NFT", async () => {
-    const [treeAuthority, _bump] = PublicKey.findProgramAddressSync(
-      [treeKeypair.publicKey.toBuffer()],
-      BUBBLEGUM_PROGRAM_ID
-    )
+    // Mint a compressed nft to random receiver.
+    const receiver = Keypair.generate().publicKey
 
-    const receiver = new PublicKey(
-      "Bi7EGRAtv2Rod1exgcPiLpjXibmepRx88Rm72qmYn7BE"
-    )
-
+    // Use a random uri (off-chain metadata) from the list for the test.
     const randomUri = uris[Math.floor(Math.random() * uris.length)]
 
-    // Initialize the dataAccount.
     const tx = await program.methods
       .mint(
         treeAuthority, // treeAuthority
@@ -136,7 +139,7 @@ describe("compressed-nft", () => {
         wallet.publicKey, // treeDelegate
         randomUri // uri
       )
-      .accounts({ dataAccount: dataAccount })
+      .accounts({ dataAccount: dataAccount }) // dataAccount required by Solang even though its unused.
       .remainingAccounts([
         {
           pubkey: wallet.publicKey,
