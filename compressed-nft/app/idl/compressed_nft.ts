@@ -1,179 +1,175 @@
 export type CompressedNft = {
-  "version": "0.3.0",
-  "name": "compressed_nft",
-  "instructions": [
+  version: "0.3.1";
+  name: "compressed_nft";
+  instructions: [
     {
-      "name": "new",
-      "accounts": [
+      name: "new";
+      accounts: [
         {
-          "name": "dataAccount",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": false
+          name: "dataAccount";
+          isMut: true;
+          isSigner: false;
+          isOptional: false;
         },
         {
-          "name": "wallet",
-          "isMut": false,
-          "isSigner": true,
-          "isOptional": false
+          name: "payer";
+          isMut: true;
+          isSigner: true;
+          isOptional: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
+          isOptional: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "payer",
-          "type": "publicKey"
-        },
-        {
-          "name": "bump",
-          "type": "bytes"
+          name: "bump";
+          type: {
+            array: ["u8", 1];
+          };
         }
-      ]
+      ];
     },
     {
-      "name": "mint",
-      "accounts": [
+      name: "mint";
+      accounts: [
         {
-          "name": "dataAccount",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
+          name: "dataAccount";
+          isMut: true;
+          isSigner: false;
+          isOptional: false;
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
+          isOptional: false;
         }
-      ],
-      "args": [
+      ];
+      args: [
         {
-          "name": "treeAuthority",
-          "type": "publicKey"
+          name: "treeAuthority";
+          type: "publicKey";
         },
         {
-          "name": "leafOwner",
-          "type": "publicKey"
+          name: "leafOwner";
+          type: "publicKey";
         },
         {
-          "name": "leafDelegate",
-          "type": "publicKey"
+          name: "leafDelegate";
+          type: "publicKey";
         },
         {
-          "name": "merkleTree",
-          "type": "publicKey"
+          name: "merkleTree";
+          type: "publicKey";
         },
         {
-          "name": "payer",
-          "type": "publicKey"
+          name: "payer";
+          type: "publicKey";
         },
         {
-          "name": "treeDelegate",
-          "type": "publicKey"
+          name: "treeDelegate";
+          type: "publicKey";
         },
         {
-          "name": "uri",
-          "type": "string"
+          name: "uri";
+          type: "string";
         }
-      ]
+      ];
     }
-  ],
-  "metadata": {
-    "address": "7NjZqoBmcZxZ6n2WwEPAsTbn68fVHszecNdYWHM7dfhq"
-  }
+  ];
+  metadata: {
+    address: "BhDH6TLEnf4dLq9hLn2gLwm5rJdj8Cbdc9ZrsjUpL7kB";
+  };
 };
 
 export const IDL: CompressedNft = {
-  "version": "0.3.0",
-  "name": "compressed_nft",
-  "instructions": [
+  version: "0.3.1",
+  name: "compressed_nft",
+  instructions: [
     {
-      "name": "new",
-      "accounts": [
+      name: "new",
+      accounts: [
         {
-          "name": "dataAccount",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": false
+          name: "dataAccount",
+          isMut: true,
+          isSigner: false,
+          isOptional: false,
         },
         {
-          "name": "wallet",
-          "isMut": false,
-          "isSigner": true,
-          "isOptional": false
+          name: "payer",
+          isMut: true,
+          isSigner: true,
+          isOptional: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+          isOptional: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "payer",
-          "type": "publicKey"
+          name: "bump",
+          type: {
+            array: ["u8", 1],
+          },
         },
-        {
-          "name": "bump",
-          "type": "bytes"
-        }
-      ]
+      ],
     },
     {
-      "name": "mint",
-      "accounts": [
+      name: "mint",
+      accounts: [
         {
-          "name": "dataAccount",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
+          name: "dataAccount",
+          isMut: true,
+          isSigner: false,
+          isOptional: false,
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": false
-        }
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+          isOptional: false,
+        },
       ],
-      "args": [
+      args: [
         {
-          "name": "treeAuthority",
-          "type": "publicKey"
+          name: "treeAuthority",
+          type: "publicKey",
         },
         {
-          "name": "leafOwner",
-          "type": "publicKey"
+          name: "leafOwner",
+          type: "publicKey",
         },
         {
-          "name": "leafDelegate",
-          "type": "publicKey"
+          name: "leafDelegate",
+          type: "publicKey",
         },
         {
-          "name": "merkleTree",
-          "type": "publicKey"
+          name: "merkleTree",
+          type: "publicKey",
         },
         {
-          "name": "payer",
-          "type": "publicKey"
+          name: "payer",
+          type: "publicKey",
         },
         {
-          "name": "treeDelegate",
-          "type": "publicKey"
+          name: "treeDelegate",
+          type: "publicKey",
         },
         {
-          "name": "uri",
-          "type": "string"
-        }
-      ]
-    }
+          name: "uri",
+          type: "string",
+        },
+      ],
+    },
   ],
-  "metadata": {
-    "address": "7NjZqoBmcZxZ6n2WwEPAsTbn68fVHszecNdYWHM7dfhq"
-  }
+  metadata: {
+    address: "BhDH6TLEnf4dLq9hLn2gLwm5rJdj8Cbdc9ZrsjUpL7kB",
+  },
 };

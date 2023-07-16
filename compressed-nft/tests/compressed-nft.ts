@@ -1,50 +1,50 @@
-import * as anchor from "@coral-xyz/anchor"
-import { Program, Wallet } from "@coral-xyz/anchor"
-import { CompressedNft } from "../target/types/compressed_nft"
+import * as anchor from "@coral-xyz/anchor";
+import { Program, Wallet } from "@coral-xyz/anchor";
+import { CompressedNft } from "../target/types/compressed_nft";
 import {
   PublicKey,
   SystemProgram,
   Transaction,
   Keypair,
   sendAndConfirmTransaction,
-} from "@solana/web3.js"
+} from "@solana/web3.js";
 import {
   SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
   ValidDepthSizePair,
   SPL_NOOP_PROGRAM_ID,
   createAllocTreeIx,
-} from "@solana/spl-account-compression"
+} from "@solana/spl-account-compression";
 import {
   PROGRAM_ID as BUBBLEGUM_PROGRAM_ID,
   createCreateTreeInstruction,
-} from "@metaplex-foundation/mpl-bubblegum"
-import { uris } from "../utils/uri"
+} from "@metaplex-foundation/mpl-bubblegum";
+import { uris } from "../utils/uri";
 
 describe("compressed-nft", () => {
-  const provider = anchor.AnchorProvider.env()
-  anchor.setProvider(provider)
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const wallet = provider.wallet as Wallet
-  const connection = provider.connection
+  const wallet = provider.wallet as Wallet;
+  const connection = provider.connection;
 
-  const program = anchor.workspace.CompressedNft as Program<CompressedNft>
+  const program = anchor.workspace.CompressedNft as Program<CompressedNft>;
 
   // Generate a new keypair for the merkle tree.
-  const treeKeypair = Keypair.generate()
+  const treeKeypair = Keypair.generate();
 
   // Derive the PDA that will be the tree authority.
   // This is required by the bubblegum program.
   const [treeAuthority] = PublicKey.findProgramAddressSync(
     [treeKeypair.publicKey.toBuffer()],
     BUBBLEGUM_PROGRAM_ID
-  )
+  );
 
   // Derive the PDA that will be used to initialize the dataAccount.
   // Required by Solang even though we're not using it.
   const [dataAccount, bump] = PublicKey.findProgramAddressSync(
     [Buffer.from("seed")],
     program.programId
-  )
+  );
 
   // Create a merkle tree account.
   before(async () => {
@@ -54,10 +54,10 @@ describe("compressed-nft", () => {
     const maxDepthSizePair: ValidDepthSizePair = {
       maxDepth: 14,
       maxBufferSize: 64,
-    }
+    };
 
     // Depth of the canopy (how much of the tree is stored on-chain)
-    const canopyDepth = 0
+    const canopyDepth = 0;
 
     // Instruction to create an account with enough space to store the merkle tree.
     const allocTreeIx = await createAllocTreeIx(
@@ -66,7 +66,7 @@ describe("compressed-nft", () => {
       wallet.publicKey,
       maxDepthSizePair,
       canopyDepth
-    )
+    );
 
     // Instruction to initialize the merkle tree account with the bubblegum program.
     const createTreeIx = createCreateTreeInstruction(
@@ -81,14 +81,14 @@ describe("compressed-nft", () => {
       {
         maxBufferSize: maxDepthSizePair.maxBufferSize,
         maxDepth: maxDepthSizePair.maxDepth,
-        public: true,
+        public: true, // creating a "public" tree, so anyone can mint cnfts to it
       },
       BUBBLEGUM_PROGRAM_ID
-    )
+    );
 
     try {
-      const tx = new Transaction().add(allocTreeIx, createTreeIx)
-      tx.feePayer = wallet.publicKey
+      const tx = new Transaction().add(allocTreeIx, createTreeIx);
+      tx.feePayer = wallet.publicKey;
 
       const txSignature = await sendAndConfirmTransaction(
         connection,
@@ -98,36 +98,36 @@ describe("compressed-nft", () => {
           commitment: "confirmed",
           skipPreflight: true,
         }
-      )
+      );
 
       console.log(
         `https://explorer.solana.com/tx/${txSignature}?cluster=devnet`
-      )
+      );
 
-      console.log("Tree Address:", treeKeypair.publicKey.toBase58())
+      console.log("Tree Address:", treeKeypair.publicKey.toBase58());
     } catch (err: any) {
-      console.error("\nFailed to create merkle tree:", err)
-      throw err
+      console.error("\nFailed to create merkle tree:", err);
+      throw err;
     }
 
-    console.log("\n")
-  })
+    console.log("\n");
+  });
 
   it("Is initialized!", async () => {
     // Initialize the dataAccount.
     const tx = await program.methods
-      .new(wallet.publicKey, Buffer.from([bump]))
+      .new([bump])
       .accounts({ dataAccount: dataAccount })
-      .rpc()
-    console.log("Your transaction signature", tx)
-  })
+      .rpc();
+    console.log("Your transaction signature", tx);
+  });
 
   it("Mint Compressed NFT", async () => {
     // Mint a compressed nft to random receiver.
-    const receiver = Keypair.generate().publicKey
+    const receiver = Keypair.generate().publicKey;
 
     // Use a random uri (off-chain metadata) from the list for the test.
-    const randomUri = uris[Math.floor(Math.random() * uris.length)]
+    const randomUri = uris[Math.floor(Math.random() * uris.length)];
 
     const tx = await program.methods
       .mint(
@@ -142,22 +142,22 @@ describe("compressed-nft", () => {
       .accounts({ dataAccount: dataAccount }) // dataAccount required by Solang even though its unused.
       .remainingAccounts([
         {
-          pubkey: wallet.publicKey,
+          pubkey: wallet.publicKey, // payer (and tree delegate in this example)
           isWritable: true,
           isSigner: true,
         },
         {
-          pubkey: receiver,
+          pubkey: receiver, // new leaf owner
           isWritable: false,
           isSigner: false,
         },
         {
-          pubkey: treeAuthority,
+          pubkey: treeAuthority, // tree authority
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: treeKeypair.publicKey,
+          pubkey: treeKeypair.publicKey, // tree account address
           isWritable: true,
           isSigner: false,
         },
@@ -182,7 +182,7 @@ describe("compressed-nft", () => {
           isSigner: false,
         },
       ])
-      .rpc({ skipPreflight: true })
-    console.log("Your transaction signature", tx)
-  })
-})
+      .rpc({ skipPreflight: true });
+    console.log("Your transaction signature", tx);
+  });
+});

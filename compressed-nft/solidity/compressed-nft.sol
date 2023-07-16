@@ -1,13 +1,14 @@
 
 import "solana";
 
-@program_id("7NjZqoBmcZxZ6n2WwEPAsTbn68fVHszecNdYWHM7dfhq")
+@program_id("BhDH6TLEnf4dLq9hLn2gLwm5rJdj8Cbdc9ZrsjUpL7kB")
 contract compressed_nft {
 
     @payer(payer) // payer address
     @seed("seed") // hardcoded seed
-    @bump(bump) // bump seed for pda address
-    constructor(address payer, bytes bump) {
+    constructor(
+        @bump bytes1 bump // bump seed for pda address
+    ) {
         // Creating a dataAccount for the program, which is required by Solang
         // However, this account is not used in the program
     }
@@ -23,7 +24,7 @@ contract compressed_nft {
         address payer, // payer
         address tree_delegate, // delegate of the merkle tree
         string uri // uri of the new compressed NFT (metadata)
-    ) public view{
+    ) public {
         print("Minting Compressed NFT");
 
         // Create a creator array with a single creator
