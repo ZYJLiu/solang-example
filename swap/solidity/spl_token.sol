@@ -48,7 +48,7 @@ library SplToken {
 	/// @param tokenAccount the public key of the token account to initialize
 	/// @param mint the public key of the mint account for this new token account
 	/// @param owner the public key of the owner of this new token account
-	function initialize_account(address tokenAccount, address mint, address owner) internal view{
+	function initialize_account(address tokenAccount, address mint, address owner) internal{
 		bytes instr = new bytes(1);
 
 		instr[0] = uint8(TokenInstruction.InitializeAccount);
@@ -77,7 +77,7 @@ library SplToken {
 	/// @param mintAuthority the public key of the mint authority
 	/// @param freezeAuthority the public key of the freeze authority
 	/// @param decimals the decimals of the mint
-	function initialize_mint(address mint, address mintAuthority, address freezeAuthority, uint8 decimals) internal view {
+	function initialize_mint(address mint, address mintAuthority, address freezeAuthority, uint8 decimals) internal {
     	InitializeMintInstruction instr = InitializeMintInstruction({
             instruction: 20,
             decimals: decimals,
@@ -99,7 +99,7 @@ library SplToken {
 	/// @param account the token account where the minted tokens should go
 	/// @param authority the public key of the mint authority
 	/// @param amount the amount of tokens to mint
-	function mint_to(address mint, address account, address authority, uint64 amount) internal view {
+	function mint_to(address mint, address account, address authority, uint64 amount) internal {
 		bytes instr = new bytes(9);
 
 		instr[0] = uint8(TokenInstruction.MintTo);
@@ -121,7 +121,7 @@ library SplToken {
 	/// @param to the account to transfer tokens to
 	/// @param owner the publickey of the from account owner keypair
 	/// @param amount the amount to transfer
-	function transfer(address from, address to, address owner, uint64 amount) internal view {
+	function transfer(address from, address to, address owner, uint64 amount) internal {
 		bytes instr = new bytes(9);
 
 		instr[0] = uint8(TokenInstruction.Transfer);
@@ -142,7 +142,7 @@ library SplToken {
 	/// @param mint the mint for this token
 	/// @param owner the publickey of the account owner keypair
 	/// @param amount the amount to transfer
-	function burn(address account, address mint, address owner, uint64 amount) internal view {
+	function burn(address account, address mint, address owner, uint64 amount) internal {
 		bytes instr = new bytes(9);
 
 		instr[0] = uint8(TokenInstruction.Burn);
@@ -163,7 +163,7 @@ library SplToken {
 	/// @param delegate the delegate publickey
 	/// @param owner the publickey of the account owner keypair
 	/// @param amount the amount to approve
-	function approve(address account, address delegate, address owner, uint64 amount) internal view {
+	function approve(address account, address delegate, address owner, uint64 amount) internal {
 		bytes instr = new bytes(9);
 
 		instr[0] = uint8(TokenInstruction.Approve);
@@ -183,7 +183,7 @@ library SplToken {
 	///
 	/// @param account the account for which a delegate should be approved
 	/// @param owner the publickey of the account owner keypair
-	function revoke(address account, address owner) internal view {
+	function revoke(address account, address owner) internal {
 		bytes instr = new bytes(1);
 
 		instr[0] = uint8(TokenInstruction.Revoke);
@@ -321,7 +321,7 @@ library SplToken {
 	///
 	/// @param mintAccount the public key for the mint account
 	/// @param mintAuthority the public for the mint authority
-	function remove_mint_authority(address mintAccount, address mintAuthority) public view {
+	function remove_mint_authority(address mintAccount, address mintAuthority) public {
 		AccountMeta[2] metas = [
 			AccountMeta({pubkey: mintAccount, is_signer: false, is_writable: true}),
 			AccountMeta({pubkey: mintAuthority, is_signer: true, is_writable: false})

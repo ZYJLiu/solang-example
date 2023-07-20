@@ -3,33 +3,34 @@ import "./spl_token.sol";
 import "solana";
 import "./Math.sol";
 
-@program_id("8z3qb8ybfdjDtJfhxzjpk43dCxCCPUjHEmknXyr7ShwS")
+@program_id("HZWy6tWevGrzD5p66Ut5YUtVVvK8hDkvP7WxXyV7MBwG")
 contract amm {
     address private pool;
     address private mintA;
     address private mintB;
 
     @payer(payer) // payer address
-    @seed(abi.encode(_mintA)) // mintA address (first token in the pool)
-    @seed(abi.encode(_mintB)) // mintB address (second token in the pool)
-    @bump(bump) // bump seed for pda address
-    constructor(address payer, address _mintA, address _mintB, bytes1 bump) {
+    constructor(
+        @seed bytes _mintA, // mintA address (first token in the pool)
+        @seed bytes _mintB, // mintB address (second token in the pool)
+        @bump bytes1 bump // bump seed for pda address
+    ) {
         // Derive the PDA address for the pool
-        (address _pool, bytes1 _bump) = try_find_program_address([abi.encode(_mintA), abi.encode(_mintB)], type(amm).program_id);
+        (address _pool, bytes1 _bump) = try_find_program_address([_mintA, _mintB], type(amm).program_id);
         require(bump == _bump, 'INVALID_BUMP');
 
         pool = _pool;
-        mintA = _mintA;
-        mintB = _mintB;
+        mintA = _mintA.readAddress(0);
+        mintB = _mintB.readAddress(0);
 
         // Create and initialize reserve token accounts for the pool
         // Reserve token accounts are used to store the tokens that are deposited into the pool
-        _createReserveTokenAccount(payer, _mintA);
-        _createReserveTokenAccount(payer, _mintB);
+        _createReserveTokenAccount(tx.accounts.payer.key, _mintA.readAddress(0));
+        _createReserveTokenAccount(tx.accounts.payer.key, _mintB.readAddress(0));
 
         // Create and initialize liquidity provider mint account for the pool
         // Liquidity provider mint account is used to mint LP tokens for liquidity providers
-        _createLiquidityProviderMint(payer);
+        _createLiquidityProviderMint(tx.accounts.payer.key);
     }
 
     // Get the pool address
@@ -48,7 +49,7 @@ contract amm {
     }
 
     // Instruction to create and initialize a token account with a Program Derived Address (PDA) as the address
-    function _createReserveTokenAccount(address payer, address mint) private view {
+    function _createReserveTokenAccount(address payer, address mint) private {
         // Derive the PDA address for the token account
         (address reserveTokenAccountAddress, bytes1 reserveTokenAccountAddressBump) = try_find_program_address([abi.encode(mint), abi.encode(pool)], type(amm).program_id);
 
@@ -64,7 +65,7 @@ contract amm {
     }
 
     // Invoke the system program to create an account, with space for a token account
-    function _createTokenAccount(address payer, address tokenAccountAddress, address mint, bytes bump) private view{
+    function _createTokenAccount(address payer, address tokenAccountAddress, address mint, bytes bump) private {
         // Prepare accounts required by instruction
         AccountMeta[2] metas = [
             AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
@@ -84,7 +85,7 @@ contract amm {
     }
 
     // Instruction to create and initialize a mint account
-    function _createLiquidityProviderMint(address payer) private view {
+    function _createLiquidityProviderMint(address payer) private {
         // Derive the PDA address for the mint account
         (address liquidityProviderMint, bytes1 liquidityProviderMintBump) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
 
@@ -101,7 +102,7 @@ contract amm {
     }
 
     // Invoke the system program to create an account, with space for mint account
-    function _createMintAccount(address payer, address mintAddress, bytes bump) private view{
+    function _createMintAccount(address payer, address mintAddress, bytes bump) private {
         // Prepare accounts required by instruction
         AccountMeta[2] metas = [
             AccountMeta({pubkey: payer, is_signer: true, is_writable: true}),
@@ -121,7 +122,7 @@ contract amm {
     }
 
     // Deposit tokens into the pool and receive LP tokens in exchange
-    function addLiquidity(uint64 amountADesired, uint64 amountBDesired, uint64 amountAMin, uint64 amountBMin, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public view {
+    function addLiquidity(uint64 amountADesired, uint64 amountBDesired, uint64 amountAMin, uint64 amountBMin, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public {
         // Derive the PDA address for the reserve token accounts and liquidity provider mint account
         (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
         (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
@@ -204,7 +205,7 @@ contract amm {
     }
 
     // Invoke the token program to mint tokens to a token account, using a PDA as the mint authority
-    function _mintTo(address account, uint64 amount) private view {
+    function _mintTo(address account, uint64 amount) private {
         (address liquidityProviderMint,) = try_find_program_address([abi.encode(pool)], type(amm).program_id);
         (address _pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
         require(_pool == pool, 'INVALID_POOL');
@@ -226,7 +227,7 @@ contract amm {
     }
 
     // Burn LP tokens to withdraw tokens from the pool
-    function removeLiquidity(uint64 amountBurn, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public view {
+    function removeLiquidity(uint64 amountBurn, address tokenAccountA, address tokenAccountB, address owner, address liquidityProviderTokenAccount) public {
         // Derive the reserve token accounts and LP mint
         (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
         (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
@@ -272,7 +273,7 @@ contract amm {
     }
 
     // Invoke the token program to transfer tokens from a token account, using a PDA as the token owner
-    function _transfer(address from, address to, uint64 amount) private view {
+    function _transfer(address from, address to, uint64 amount) private {
         (address _pool, bytes1 poolBump) = try_find_program_address([abi.encode(mintA), abi.encode(mintB)], type(amm).program_id);
         require(_pool == pool, 'INVALID_POOL');
 
@@ -293,7 +294,7 @@ contract amm {
     }
 
     // Swap tokens in the pool
-    function swap(uint64 amountIn, uint64 amountOutMin, address sourceTokenAccount, address destinationTokenAccount, address user) public view {
+    function swap(uint64 amountIn, uint64 amountOutMin, address sourceTokenAccount, address destinationTokenAccount, address user) public {
         // Derive the PDA address for reserve token accounts
         (address reserveATokenAccount,) = try_find_program_address([abi.encode(mintA), abi.encode(pool)], type(amm).program_id);
         (address reserveBTokenAccount,) = try_find_program_address([abi.encode(mintB), abi.encode(pool)], type(amm).program_id);
